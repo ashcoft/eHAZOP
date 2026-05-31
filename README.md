@@ -26,7 +26,7 @@ The EHAZOP Platform replaces spreadsheet-and-meeting workflows with a collaborat
 ## Tech Stack
 
 **Backend:**
-- Python 3.12
+- Python 3.14+
 - FastAPI 0.136.x
 - SQLAlchemy 2.0 (async)
 - PostgreSQL + pgvector

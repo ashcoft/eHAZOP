@@ -7,7 +7,7 @@ from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ehazop_backend.app.core.database import Base
+from app.core.database import Base
 
 
 class Node(Base):
@@ -349,8 +349,8 @@ class LLMSuggestion(Base):
 
 
 # Import Study for relationship
-from ehazop_backend.app.models.user import Study
-from ehazop_backend.app.models.guideword import Guideword
+from app.models.user import Study
+from app.models.guideword import Guideword
 
 
 class RiskRanking(Base):

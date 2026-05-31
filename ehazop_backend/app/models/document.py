@@ -7,7 +7,7 @@ from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ehazop_backend.app.core.database import Base
+from app.core.database import Base
 
 
 class Document(Base):
@@ -100,4 +100,4 @@ class Document(Base):
 
 
 # Import Study and User for relationships
-from ehazop_backend.app.models.user import Study, User
+from app.models.user import Study, User

@@ -3,8 +3,8 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from typing import Any
 
-from ehazop_backend.app.core.websocket import manager
-from ehazop_backend.app.core.security import verify_access_token
+from app.core.websocket import manager
+from app.core.security import verify_access_token
 
 router = APIRouter(tags=["WebSocket"])
 

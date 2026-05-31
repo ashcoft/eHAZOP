@@ -6,10 +6,10 @@ from typing import Any
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.models.user import Study, StudyMembership, User
-from ehazop_backend.app.models.action import Recommendation
-from ehazop_backend.app.schemas.user import StudyCreate, StudyUpdate
-from ehazop_backend.app.core.audit import create_audit_entry
+from app.models.user import Study, StudyMembership, User
+from app.models.action import Recommendation
+from app.schemas.user import StudyCreate, StudyUpdate
+from app.core.audit import create_audit_entry
 
 
 class StudyService:
@@ -201,14 +201,14 @@ class StudyService:
             return {}
 
         # Count nodes
-        from ehazop_backend.app.models.hazard import Node
+        from app.models.hazard import Node
         nodes_result = await self.db.execute(
             select(func.count(Node.id)).where(Node.study_id == study_id)
         )
         node_count = nodes_result.scalar() or 0
 
         # Count deviations
-        from ehazop_backend.app.models.hazard import Deviation
+        from app.models.hazard import Deviation
         deviations_result = await self.db.execute(
             select(func.count(Deviation.id))
             .join(Node)

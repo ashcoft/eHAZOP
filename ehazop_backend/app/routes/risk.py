@@ -3,9 +3,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.core.database import get_db
-from ehazop_backend.app.core.dependencies import get_current_user
-from ehazop_backend.app.schemas.risk import (
+from app.core.database import get_db
+from app.core.dependencies import get_current_user
+from app.schemas.risk import (
     RiskMatrixCreate,
     RiskMatrixUpdate,
     RiskMatrixResponse,
@@ -13,7 +13,7 @@ from ehazop_backend.app.schemas.risk import (
     RiskScoreRequest,
     RiskScoreResponse,
 )
-from ehazop_backend.app.services.risk_service import RiskService
+from app.services.risk_service import RiskService
 
 router = APIRouter(prefix="/risk-matrices", tags=["Risk Matrices"])
 

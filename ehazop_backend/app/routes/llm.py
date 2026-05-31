@@ -3,10 +3,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.core.database import get_db
-from ehazop_backend.app.core.dependencies import get_current_user
-from ehazop_backend.app.services.llm_service import LLMService
-from ehazop_backend.app.schemas.hazard import LLMSuggestionResponse
+from app.core.database import get_db
+from app.core.dependencies import get_current_user
+from app.services.llm_service import LLMService
+from app.schemas.hazard import LLMSuggestionResponse
 
 router = APIRouter(prefix="/llm", tags=["LLM"])
 

@@ -5,9 +5,9 @@ from datetime import datetime, timezone
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.models.hazard import Node, Deviation
-from ehazop_backend.app.models.user import Study
-from ehazop_backend.app.schemas.hazard import NodeCreate, NodeUpdate
+from app.models.hazard import Node, Deviation
+from app.models.user import Study
+from app.schemas.hazard import NodeCreate, NodeUpdate
 
 
 class NodeService:

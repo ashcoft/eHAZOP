@@ -3,16 +3,16 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.core.database import get_db
-from ehazop_backend.app.core.dependencies import get_current_user
-from ehazop_backend.app.schemas.user import (
+from app.core.database import get_db
+from app.core.dependencies import get_current_user
+from app.schemas.user import (
     StudyCreate,
     StudyUpdate,
     StudyResponse,
     StudyListResponse,
     StudyMemberAdd,
 )
-from ehazop_backend.app.services.study_service import StudyService
+from app.services.study_service import StudyService
 
 router = APIRouter(prefix="/studies", tags=["Studies"])
 
@@ -41,7 +41,7 @@ async def list_studies(
     study_responses = []
     for study in studies:
         # Get member count
-        from ehazop_backend.app.models.user import StudyMembership
+        from app.models.user import StudyMembership
         from sqlalchemy import select, func
         count_result = await db.execute(
             select(func.count(StudyMembership.id)).where(
@@ -108,7 +108,7 @@ async def get_study(
         )
 
     # Check access
-    from ehazop_backend.app.models.user import StudyMembership
+    from app.models.user import StudyMembership
     from sqlalchemy import select, func
     membership_result = await db.execute(
         select(StudyMembership).where(

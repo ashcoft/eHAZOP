@@ -15,9 +15,9 @@ from pathlib import Path
 # Add the parent directory to the path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from ehazop_backend.app.core.config import get_settings
-from ehazop_backend.app.core.database import Base
-from ehazop_backend.app.models import *  # noqa: F401, F403
+from app.core.config import get_settings
+from app.core.database import Base
+from app.models import *  # noqa: F401, F403
 
 # this is the Alembic Config object
 config = context.config

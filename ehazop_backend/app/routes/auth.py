@@ -5,18 +5,18 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.core.database import get_db
-from ehazop_backend.app.core.security import verify_refresh_token, create_access_token
-from ehazop_backend.app.core.config import get_settings
-from ehazop_backend.app.core.dependencies import get_current_user
-from ehazop_backend.app.schemas.user import (
+from app.core.database import get_db
+from app.core.security import verify_refresh_token, create_access_token
+from app.core.config import get_settings
+from app.core.dependencies import get_current_user
+from app.schemas.user import (
     LoginRequest,
     TokenResponse,
     RefreshTokenRequest,
     UserCreate,
     UserResponse,
 )
-from ehazop_backend.app.services.auth_service import AuthService
+from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 settings = get_settings()

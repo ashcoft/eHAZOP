@@ -13,16 +13,16 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from ehazop_backend.app.core.config import get_settings
-from ehazop_backend.app.core.database import async_session_factory
-from ehazop_backend.app.core.security import get_password_hash
+from app.core.config import get_settings
+from app.core.database import async_session_factory
+from app.core.security import get_password_hash
 
 settings = get_settings()
 
 
 async def seed_guideword_libraries(db):
     """Seed default guideword libraries."""
-    from ehazop_backend.app.models.guideword import GuidewordLibrary, Guideword
+    from app.models.guideword import GuidewordLibrary, Guideword
     
     # Generic HAZOP guidewords
     generic_library = GuidewordLibrary(
@@ -125,7 +125,7 @@ async def seed_guideword_libraries(db):
 
 async def seed_risk_matrix(db):
     """Seed default risk matrix."""
-    from ehazop_backend.app.models.risk import RiskMatrix
+    from app.models.risk import RiskMatrix
 
     # Default 5x5 risk matrix
     matrix_data = [
@@ -176,7 +176,7 @@ async def seed_risk_matrix(db):
 
 async def seed_demo_users(db):
     """Seed demo user accounts."""
-    from ehazop_backend.app.models.user import User
+    from app.models.user import User
 
     users = [
         {
@@ -227,7 +227,7 @@ async def seed_demo_users(db):
 
 async def seed_demo_study(db):
     """Create a demo study."""
-    from ehazop_backend.app.models.user import User, Study, StudyMembership
+    from app.models.user import User, Study, StudyMembership
     from sqlalchemy import select
 
     # Get admin user

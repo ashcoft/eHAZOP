@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.core.database import get_db
-from ehazop_backend.app.core.dependencies import get_current_user
-from ehazop_backend.app.services.report_service import ReportService
+from app.core.database import get_db
+from app.core.dependencies import get_current_user
+from app.services.report_service import ReportService
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
@@ -100,7 +100,7 @@ async def download_report(
     current_user=Depends(get_current_user),
 ):
     """Download a generated report."""
-    from ehazop_backend.app.services.storage_service import StorageService
+    from app.services.storage_service import StorageService
     storage_service = StorageService(db)
     
     content = await storage_service.download_file(document_id)

@@ -7,7 +7,7 @@ from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ehazop_backend.app.core.database import Base
+from app.core.database import Base
 
 
 class Recommendation(Base):
@@ -189,5 +189,5 @@ class RecommendationHistory(Base):
 
 
 # Import Deviation for relationship
-from ehazop_backend.app.models.hazard import Deviation
-from ehazop_backend.app.models.user import Study, User
+from app.models.hazard import Deviation
+from app.models.user import Study, User

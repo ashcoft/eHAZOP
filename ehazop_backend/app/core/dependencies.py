@@ -7,9 +7,9 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.core.database import get_db
-from ehazop_backend.app.core.security import verify_access_token
-from ehazop_backend.app.models.user import User, StudyMembership
+from app.core.database import get_db
+from app.core.security import verify_access_token
+from app.models.user import User, StudyMembership
 
 security = HTTPBearer()
 
@@ -89,7 +89,7 @@ async def get_study_membership(
     if study_id is None:
         return None
     
-    from ehazop_backend.app.models.user import StudyMembership
+    from app.models.user import StudyMembership
     result = await db.execute(
         select(StudyMembership).where(
             StudyMembership.user_id == user.id,

@@ -5,8 +5,8 @@ from typing import Any
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.models.knowledge import KnowledgeChunk, Citation, EmbeddingIndex
-from ehazop_backend.app.models.document import Document
+from app.models.knowledge import KnowledgeChunk, Citation, EmbeddingIndex
+from app.models.document import Document
 
 
 class RAGService:
@@ -95,7 +95,7 @@ class RAGService:
 
     async def generate_embeddings(self, chunks: list[KnowledgeChunk]) -> list[list[float]]:
         """Generate embeddings for chunks using LLM service."""
-        from ehazop_backend.app.services.llm_service import LLMService
+        from app.services.llm_service import LLMService
         
         llm_service = LLMService(self.db)
         embeddings = []
@@ -121,7 +121,7 @@ class RAGService:
     ) -> list[dict[str, Any]]:
         """Search knowledge base using vector similarity."""
         # Generate query embedding
-        from ehazop_backend.app.services.llm_service import LLMService
+        from app.services.llm_service import LLMService
         
         llm_service = LLMService(self.db)
         try:

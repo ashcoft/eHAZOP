@@ -5,8 +5,8 @@ from datetime import date, datetime, timezone
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.models.action import Recommendation, RecommendationHistory
-from ehazop_backend.app.schemas.action import RecommendationCreate, RecommendationUpdate
+from app.models.action import Recommendation, RecommendationHistory
+from app.schemas.action import RecommendationCreate, RecommendationUpdate
 
 
 class ActionService:

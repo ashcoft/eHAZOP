@@ -5,14 +5,14 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.core.security import (
+from app.core.security import (
     create_access_token,
     create_refresh_token,
     get_password_hash,
     verify_password,
 )
-from ehazop_backend.app.models.user import User
-from ehazop_backend.app.schemas.user import UserCreate, UserResponse
+from app.models.user import User
+from app.schemas.user import UserCreate, UserResponse
 
 
 class AuthService:

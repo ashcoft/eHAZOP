@@ -3,15 +3,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.core.database import get_db
-from ehazop_backend.app.core.dependencies import get_current_user
-from ehazop_backend.app.schemas.hazard import (
+from app.core.database import get_db
+from app.core.dependencies import get_current_user
+from app.schemas.hazard import (
     NodeCreate,
     NodeUpdate,
     NodeResponse,
     NodeListResponse,
 )
-from ehazop_backend.app.services.node_service import NodeService
+from app.services.node_service import NodeService
 
 router = APIRouter(tags=["Nodes"])
 
@@ -37,7 +37,7 @@ async def list_nodes(
     node_responses = []
     for node in nodes:
         from sqlalchemy import select, func
-        from ehazop_backend.app.models.hazard import Deviation
+        from app.models.hazard import Deviation
         count_result = await db.execute(
             select(func.count(Deviation.id)).where(Deviation.node_id == node.id)
         )

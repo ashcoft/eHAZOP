@@ -5,9 +5,9 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.models.risk import RiskMatrix, RiskMatrixOverride
-from ehazop_backend.app.models.hazard import RiskRanking, Consequence
-from ehazop_backend.app.schemas.risk import RiskMatrixCreate, RiskMatrixUpdate
+from app.models.risk import RiskMatrix, RiskMatrixOverride
+from app.models.hazard import RiskRanking, Consequence
+from app.schemas.risk import RiskMatrixCreate, RiskMatrixUpdate
 
 
 class RiskService:

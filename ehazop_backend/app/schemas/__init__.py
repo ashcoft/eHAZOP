@@ -1,6 +1,6 @@
 """Pydantic schemas for API validation."""
 
-from ehazop_backend.app.schemas.user import (
+from app.schemas.user import (
     LoginRequest,
     TokenResponse,
     RefreshTokenRequest,
@@ -19,7 +19,7 @@ from ehazop_backend.app.schemas.user import (
     StudyListResponse,
     StudyMemberAdd,
 )
-from ehazop_backend.app.schemas.hazard import (
+from app.schemas.hazard import (
     NodeBase,
     NodeCreate,
     NodeUpdate,
@@ -49,7 +49,7 @@ from ehazop_backend.app.schemas.hazard import (
     GuidewordResponse,
     RecommendationResponse,
 )
-from ehazop_backend.app.schemas.guideword import (
+from app.schemas.guideword import (
     GuidewordLibraryBase,
     GuidewordLibraryCreate,
     GuidewordLibraryUpdate,
@@ -59,7 +59,7 @@ from ehazop_backend.app.schemas.guideword import (
     GuidewordUpdate,
     GuidewordResponse,
 )
-from ehazop_backend.app.schemas.risk import (
+from app.schemas.risk import (
     RiskMatrixBase,
     RiskMatrixCreate,
     RiskMatrixUpdate,
@@ -71,7 +71,7 @@ from ehazop_backend.app.schemas.risk import (
     RiskScoreRequest,
     RiskScoreResponse,
 )
-from ehazop_backend.app.schemas.action import (
+from app.schemas.action import (
     RecommendationBase,
     RecommendationCreate,
     RecommendationUpdate,
@@ -80,7 +80,7 @@ from ehazop_backend.app.schemas.action import (
     RecommendationHistoryResponse,
     RecommendationVerify,
 )
-from ehazop_backend.app.schemas.knowledge import (
+from app.schemas.knowledge import (
     KnowledgeChunkBase,
     KnowledgeChunkCreate,
     KnowledgeChunkResponse,

@@ -3,9 +3,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.core.database import get_db
-from ehazop_backend.app.core.dependencies import get_current_user
-from ehazop_backend.app.schemas.hazard import (
+from app.core.database import get_db
+from app.core.dependencies import get_current_user
+from app.schemas.hazard import (
     DeviationCreate,
     DeviationUpdate,
     DeviationResponse,
@@ -21,7 +21,7 @@ from ehazop_backend.app.schemas.hazard import (
     LLMSuggestionResponse,
     LLMSuggestionReview,
 )
-from ehazop_backend.app.services.worksheet_service import WorksheetService
+from app.services.worksheet_service import WorksheetService
 
 router = APIRouter(tags=["Worksheet"])
 
@@ -229,7 +229,7 @@ async def add_risk_ranking(
     current_user=Depends(get_current_user),
 ):
     """Add a risk ranking to a deviation."""
-    from ehazop_backend.app.services.risk_service import RiskService
+    from app.services.risk_service import RiskService
     risk_service = RiskService(db)
     ranking = await risk_service.create_risk_ranking(
         deviation_id=deviation_id,

@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.core.database import get_db
-from ehazop_backend.app.core.dependencies import get_current_user
-from ehazop_backend.app.schemas.action import (
+from app.core.database import get_db
+from app.core.dependencies import get_current_user
+from app.schemas.action import (
     RecommendationCreate,
     RecommendationUpdate,
     RecommendationResponse,
@@ -14,7 +14,7 @@ from ehazop_backend.app.schemas.action import (
     RecommendationHistoryResponse,
     RecommendationVerify,
 )
-from ehazop_backend.app.services.action_service import ActionService
+from app.services.action_service import ActionService
 
 router = APIRouter(prefix="/actions", tags=["Actions"])
 

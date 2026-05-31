@@ -9,8 +9,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.core.config import get_settings
-from ehazop_backend.app.models.document import Document
+from app.core.config import get_settings
+from app.models.document import Document
 
 settings = get_settings()
 

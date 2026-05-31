@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.models.hazard import (
+from app.models.hazard import (
     Deviation,
     Cause,
     Consequence,
@@ -13,8 +13,8 @@ from ehazop_backend.app.models.hazard import (
     RiskRanking,
     LLMSuggestion,
 )
-from ehazop_backend.app.models.action import Recommendation
-from ehazop_backend.app.schemas.hazard import (
+from app.models.action import Recommendation
+from app.schemas.hazard import (
     DeviationCreate,
     DeviationUpdate,
     CauseCreate,
@@ -22,7 +22,7 @@ from ehazop_backend.app.schemas.hazard import (
     SafeguardCreate,
     RiskRankingCreate,
 )
-from ehazop_backend.app.core.websocket import manager
+from app.core.websocket import manager
 
 
 class WorksheetService:
@@ -72,7 +72,7 @@ class WorksheetService:
             count_query = count_query.where(Deviation.node_id == node_id)
         
         if study_id:
-            from ehazop_backend.app.models.hazard import Node
+            from app.models.hazard import Node
             query = query.join(Node).where(Node.study_id == study_id)
             count_query = count_query.join(Node).where(Node.study_id == study_id)
 
