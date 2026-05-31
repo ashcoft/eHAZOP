@@ -8,7 +8,7 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ehazop_backend.app.core.database import Base
+from app.core.database import Base
 
 
 class UserRole(str, Enum):
@@ -257,8 +257,8 @@ class StudyMembership(Base):
 
 
 # Import AuditLog to avoid circular imports
-from ehazop_backend.app.core.audit import AuditLog
-from ehazop_backend.app.models.guideword import GuidewordLibrary
-from ehazop_backend.app.models.risk import RiskMatrix
-from ehazop_backend.app.models.action import Recommendation
-from ehazop_backend.app.models.hazard import Node
+from app.core.audit import AuditLog
+from app.models.guideword import GuidewordLibrary
+from app.models.risk import RiskMatrix
+from app.models.action import Recommendation
+from app.models.hazard import Node

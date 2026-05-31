@@ -8,7 +8,7 @@ from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ehazop_backend.app.core.database import Base
+from app.core.database import Base
 
 
 class KnowledgeChunk(Base):
@@ -103,8 +103,8 @@ class Citation(Base):
 
 
 # Import Document and LLMSuggestion for relationships
-from ehazop_backend.app.models.document import Document
-from ehazop_backend.app.models.hazard import LLMSuggestion
+from app.models.document import Document
+from app.models.hazard import LLMSuggestion
 
 
 class EmbeddingIndex(Base):

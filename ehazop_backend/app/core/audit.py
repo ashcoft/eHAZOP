@@ -7,7 +7,7 @@ from sqlalchemy import JSON, DateTime, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ehazop_backend.app.core.database import Base
+from app.core.database import Base
 
 
 class AuditLog(Base):

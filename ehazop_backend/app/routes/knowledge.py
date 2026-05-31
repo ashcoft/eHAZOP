@@ -3,9 +3,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.core.database import get_db
-from ehazop_backend.app.core.dependencies import get_current_user
-from ehazop_backend.app.schemas.knowledge import (
+from app.core.database import get_db
+from app.core.dependencies import get_current_user
+from app.schemas.knowledge import (
     KnowledgeSearchRequest,
     KnowledgeSearchResponse,
     KnowledgeSearchResult,
@@ -13,8 +13,8 @@ from ehazop_backend.app.schemas.knowledge import (
     DocumentResponse,
     DocumentListResponse,
 )
-from ehazop_backend.app.services.rag_service import RAGService
-from ehazop_backend.app.services.storage_service import StorageService
+from app.services.rag_service import RAGService
+from app.services.storage_service import StorageService
 
 router = APIRouter(prefix="/knowledge", tags=["Knowledge Base"])
 
@@ -37,8 +37,8 @@ async def search_knowledge(
 
     search_results = []
     for result in results:
-        from ehazop_backend.app.schemas.knowledge import KnowledgeChunkResponse
-        from ehazop_backend.app.schemas.hazard import NodeResponse
+        from app.schemas.knowledge import KnowledgeChunkResponse
+        from app.schemas.hazard import NodeResponse
         
         search_results.append(KnowledgeSearchResult(
             chunk=KnowledgeChunkResponse.model_validate(result["chunk"]),
@@ -134,5 +134,5 @@ async def upload_document(
         uploaded_by_id=current_user.id,
     )
 
-    from ehazop_backend.app.schemas.knowledge import DocumentResponse
+    from app.schemas.knowledge import DocumentResponse
     return result

@@ -8,8 +8,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from ehazop_backend.app.core.config import get_settings
-from ehazop_backend.app.core.database import init_db, close_db
+from app.core.config import get_settings
+from app.core.database import init_db, close_db
 
 settings = get_settings()
 
@@ -73,7 +73,7 @@ async def general_exception_handler(
 
 
 # Import and include routers
-from ehazop_backend.app.routes import (
+from app.routes import (
     auth_router,
     users_router,
     studies_router,

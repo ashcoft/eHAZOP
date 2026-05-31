@@ -3,9 +3,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.core.database import get_db
-from ehazop_backend.app.core.dependencies import get_current_user
-from ehazop_backend.app.schemas.guideword import (
+from app.core.database import get_db
+from app.core.dependencies import get_current_user
+from app.schemas.guideword import (
     GuidewordLibraryCreate,
     GuidewordLibraryUpdate,
     GuidewordLibraryResponse,
@@ -25,7 +25,7 @@ async def list_libraries(
 ):
     """List all guideword libraries."""
     from sqlalchemy import select
-    from ehazop_backend.app.models.guideword import GuidewordLibrary
+    from app.models.guideword import GuidewordLibrary
 
     query = select(GuidewordLibrary).where(GuidewordLibrary.is_active == True)
     if study_type:
@@ -73,7 +73,7 @@ async def create_library(
             detail="Only facilitators and admins can create guideword libraries",
         )
 
-    from ehazop_backend.app.models.guideword import GuidewordLibrary
+    from app.models.guideword import GuidewordLibrary
     
     library = GuidewordLibrary(
         name=library_data.name,
@@ -97,7 +97,7 @@ async def get_library(
 ):
     """Get a guideword library by ID."""
     from sqlalchemy import select
-    from ehazop_backend.app.models.guideword import GuidewordLibrary
+    from app.models.guideword import GuidewordLibrary
 
     result = await db.execute(select(GuidewordLibrary).where(GuidewordLibrary.id == library_id))
     library = result.scalar_one_or_none()
@@ -125,7 +125,7 @@ async def update_library(
         )
 
     from sqlalchemy import select
-    from ehazop_backend.app.models.guideword import GuidewordLibrary
+    from app.models.guideword import GuidewordLibrary
 
     result = await db.execute(select(GuidewordLibrary).where(GuidewordLibrary.id == library_id))
     library = result.scalar_one_or_none()
@@ -154,7 +154,7 @@ async def list_guidewords(
 ):
     """List all guidewords in a library."""
     from sqlalchemy import select
-    from ehazop_backend.app.models.guideword import Guideword
+    from app.models.guideword import Guideword
 
     result = await db.execute(
         select(Guideword)
@@ -186,7 +186,7 @@ async def create_guideword(
             detail="Only facilitators and admins can create guidewords",
         )
 
-    from ehazop_backend.app.models.guideword import Guideword
+    from app.models.guideword import Guideword
     
     guideword = Guideword(
         library_id=library_id,

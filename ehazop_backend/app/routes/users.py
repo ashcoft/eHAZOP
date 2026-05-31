@@ -3,15 +3,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.core.database import get_db
-from ehazop_backend.app.core.dependencies import get_current_user, require_admin
-from ehazop_backend.app.schemas.user import (
+from app.core.database import get_db
+from app.core.dependencies import get_current_user, require_admin
+from app.schemas.user import (
     UserCreate,
     UserUpdate,
     UserResponse,
     UserListResponse,
 )
-from ehazop_backend.app.services.auth_service import AuthService
+from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -35,7 +35,7 @@ async def list_users(
         )
 
     from sqlalchemy import select, func
-    from ehazop_backend.app.models.user import User
+    from app.models.user import User
 
     query = select(User)
     count_query = select(func.count(User.id))

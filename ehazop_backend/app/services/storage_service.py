@@ -9,8 +9,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.core.config import get_settings
-from ehazop_backend.app.models.document import Document
+from app.core.config import get_settings
+from app.models.document import Document
 
 settings = get_settings()
 
@@ -64,10 +64,15 @@ class StorageService:
         uploaded_by_id: str | None,
     ) -> dict[str, Any]:
         """Upload file to local storage."""
+        # Sanitize filename to prevent path traversal attacks
+        safe_filename = os.path.basename(filename)
+        if not safe_filename or safe_filename.startswith('.'):
+            safe_filename = f"file_{file_id}"
+        
         storage_path = os.path.join(settings.STORAGE_LOCAL_PATH, date_str)
         os.makedirs(storage_path, exist_ok=True)
 
-        file_path = os.path.join(storage_path, f"{file_id}_{filename}")
+        file_path = os.path.join(storage_path, f"{file_id}_{safe_filename}")
         
         with open(file_path, "wb") as f:
             f.write(content)

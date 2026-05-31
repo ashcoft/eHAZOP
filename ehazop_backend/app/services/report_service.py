@@ -7,10 +7,10 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.models.user import Study
-from ehazop_backend.app.models.hazard import Node, Deviation, Cause, Consequence, Safeguard, RiskRanking
-from ehazop_backend.app.models.action import Recommendation
-from ehazop_backend.app.services.storage_service import StorageService
+from app.models.user import Study
+from app.models.hazard import Node, Deviation, Cause, Consequence, Safeguard, RiskRanking
+from app.models.action import Recommendation
+from app.services.storage_service import StorageService
 
 
 class ReportService:

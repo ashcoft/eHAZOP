@@ -1,7 +1,7 @@
 """SQLAlchemy models for the EHAZOP platform."""
 
-from ehazop_backend.app.models.user import User, Study, StudyMembership
-from ehazop_backend.app.models.hazard import (
+from app.models.user import User, Study, StudyMembership
+from app.models.hazard import (
     Node,
     Deviation,
     Cause,
@@ -10,11 +10,11 @@ from ehazop_backend.app.models.hazard import (
     LLMSuggestion,
     RiskRanking,
 )
-from ehazop_backend.app.models.guideword import GuidewordLibrary, Guideword
-from ehazop_backend.app.models.risk import RiskMatrix, RiskMatrixOverride
-from ehazop_backend.app.models.action import Recommendation, RecommendationHistory
-from ehazop_backend.app.models.document import Document
-from ehazop_backend.app.models.knowledge import KnowledgeChunk, Citation, EmbeddingIndex
+from app.models.guideword import GuidewordLibrary, Guideword
+from app.models.risk import RiskMatrix, RiskMatrixOverride
+from app.models.action import Recommendation, RecommendationHistory
+from app.models.document import Document
+from app.models.knowledge import KnowledgeChunk, Citation, EmbeddingIndex
 
 __all__ = [
     "User",

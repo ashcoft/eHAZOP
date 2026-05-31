@@ -6,9 +6,9 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ehazop_backend.app.core.config import get_settings
-from ehazop_backend.app.models.hazard import LLMSuggestion, Deviation, Node
-from ehazop_backend.app.models.user import Study
+from app.core.config import get_settings
+from app.models.hazard import LLMSuggestion, Deviation, Node
+from app.models.user import Study
 
 settings = get_settings()
 
