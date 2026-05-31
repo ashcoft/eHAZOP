@@ -1,6 +1,6 @@
 # EHAZOP Platform
 
-A web-based software platform for digitizing Safety and Operability (SAFOP) and Electrical HAZOP (EHAZOP) studies for industrial facilities.
+A web-based software platform for digitizing Safety and Operability (SAFOP)/Electrical HAZOP (EHAZOP) studies for industrial facilities.
 
 ## Overview
 
