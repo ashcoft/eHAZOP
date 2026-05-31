@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('ehazop_backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install dependencies
+        run: |
+          cd ehazop_backend
+          pip install -r requirements.txt
+      
+      - name: Lint with ruff
+        run: |
+          cd ehazop_backend
+          ruff check .
+      
+      - name: Format check with black
+        run: |
+          cd ehazop_backend
+          black --check .
+      
+      - name: Type check with mypy
+        run: |
+          cd ehazop_backend
+          mypy app/ --ignore-missing-imports
+      
+      - name: Run tests
+        run: |
+          cd ehazop_backend
+          pytest --cov=app tests/ -v
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: frontend/node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+      
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm install
+      
+      - name: Lint
+        run: |
+          cd frontend
+          npm run lint
+      
+      - name: Type check
+        run: |
+          cd frontend
+          npm run type-check
+      
+      - name: Build
+        run: |
+          cd frontend
+          npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./ehazop_backend
+          push: false
+          tags: ehazop-backend:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

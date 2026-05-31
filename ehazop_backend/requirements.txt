@@ -1,0 +1,40 @@
+# Core dependencies
+fastapi>=0.136.0
+uvicorn[standard]>=0.34.0
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
+
+# Database
+sqlalchemy[asyncio]>=2.0.36
+asyncpg>=0.30.0
+alembic>=1.14.0
+pgvector>=0.3.0
+
+# Security
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+
+# LLM and AI
+google-genai>=0.8.0
+
+# Storage
+boto3>=1.35.0
+
+# PDF and Excel
+weasyprint>=62.0
+jinja2>=3.1.0
+openpyxl>=3.1.5
+
+# Utilities
+python-multipart>=0.0.20
+aiofiles>=24.1.0
+
+# Testing
+pytest>=8.3.0
+pytest-asyncio>=0.25.0
+pytest-cov>=6.0.0
+
+# Development
+ruff>=0.9.0
+black>=24.10.0
+mypy>=1.14.0
