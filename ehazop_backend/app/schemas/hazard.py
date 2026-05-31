@@ -1,7 +1,9 @@
 """Hazard and node schemas."""
 
+from __future__ import annotations
+
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -121,7 +123,7 @@ class DeviationDetailResponse(DeviationResponse):
     safeguards: list["SafeguardResponse"] = []
     recommendations: list["RecommendationResponse"] = []
     risk_rankings: list["RiskRankingResponse"] = []
-    guideword: "GuidewordResponse" | None = None
+    guideword: Optional["GuidewordResponse"] = None
 
 
 # Cause schemas

@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -42,7 +42,8 @@ class KnowledgeChunk(Base):
         String(255),
         nullable=True,
     )  # e.g., "Page 5", "Section 4.2"
-    metadata: Mapped[dict | None] = mapped_column(
+    extra_metadata: Mapped[dict | None] = mapped_column(
+        JSON,
         nullable=True,
     )  # Additional metadata (JSON)
     # Vector embedding - will be managed separately with pgvector
