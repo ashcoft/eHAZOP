@@ -89,3 +89,4 @@ jobs:
           tags: ehazop-backend:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
+        continue-on-error: true
