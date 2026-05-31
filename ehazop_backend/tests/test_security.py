@@ -134,7 +134,7 @@ class TestTokenDataIntegrity:
         """Original data should not be modified."""
         original_data = {"sub": "user123", "role": "admin"}
         data_copy = original_data.copy()
-        token = create_access_token(original_data)
+        create_access_token(original_data)
         assert original_data == data_copy
 
     def test_token_with_special_characters(self):
