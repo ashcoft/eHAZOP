@@ -104,7 +104,7 @@ async def require_study_access(
     db: Annotated[AsyncSession, Depends(get_db)],
     study_id: str,
     require_role: str | None = None,
-) -> StudyMembership:
+) -> StudyMembership | None:
     """Require the user to have access to a specific study."""
     membership = await get_study_membership(user, db, study_id)
     
