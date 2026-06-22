@@ -14,7 +14,7 @@ import { studiesApi, nodesApi, actionsApi } from '../../api/client'
 const StudyDetail: React.FC = () => {
   const { studyId } = useParams<{ studyId: string }>()
 
-  const { data: study, isLoading } = useQuery({
+  const { data: study } = useQuery({
     queryKey: ['study', studyId],
     queryFn: () => studiesApi.get(studyId!),
     enabled: !!studyId,
