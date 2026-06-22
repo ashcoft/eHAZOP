@@ -64,7 +64,7 @@ export const useWSStore = create<WSState>((set) => ({
   studyId: null,
   presence: {},
   locks: {},
-  connect: (studyId, token) => set({ connected: true, studyId }),
+  connect: (studyId, _token) => set({ connected: true, studyId }),
   disconnect: () => set({ connected: false, studyId: null, presence: {}, locks: {} }),
   updatePresence: (presence) => set({ presence }),
   updateLocks: (locks) => set({ locks }),
