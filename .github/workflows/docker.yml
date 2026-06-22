@@ -49,8 +49,10 @@ jobs:
           else
             TAG="pr-${{ github.event.pull_request.number }}"
           fi
-          echo "tags=ghcr.io/${{ github.repository }}/backend:${TAG}" >> $GITHUB_OUTPUT
-          echo "tags=ghcr.io/${{ github.repository }}/backend:${TAG}" 
+          # Convert repository name to lowercase for Docker registry
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "tags=ghcr.io/${REPO_LOWER}/backend:${TAG}" >> $GITHUB_OUTPUT
+          echo "tags=ghcr.io/${REPO_LOWER}/backend:${TAG}" 
       
       - name: Build backend image
         uses: docker/build-push-action@v5
@@ -98,7 +100,9 @@ jobs:
           else
             TAG="pr-${{ github.event.pull_request.number }}"
           fi
-          echo "tags=ghcr.io/${{ github.repository }}/frontend:${TAG}" >> $GITHUB_OUTPUT
+          # Convert repository name to lowercase for Docker registry
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "tags=ghcr.io/${REPO_LOWER}/frontend:${TAG}" >> $GITHUB_OUTPUT
       
       - name: Build frontend image
         uses: docker/build-push-action@v5
