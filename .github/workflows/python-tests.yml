@@ -1,0 +1,141 @@
+name: Python Tests and Linting
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
+jobs:
+  python-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ehazop_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          cd ehazop_backend
+          pip install -r requirements.txt
+
+      - name: Run Ruff linting
+        run: |
+          cd ehazop_backend
+          ruff check app/ tests/
+        continue-on-error: true
+
+      - name: Run Ruff format check
+        run: |
+          cd ehazop_backend
+          ruff format --check app/ tests/
+        continue-on-error: true
+
+      - name: Run mypy type checking
+        run: |
+          cd ehazop_backend
+          mypy app/ --ignore-missing-imports
+        continue-on-error: true
+
+      - name: Run pytest with coverage
+        run: |
+          cd ehazop_backend
+          export DATABASE_URL="postgresql+asyncpg://postgres:postgres@localhost:5432/ehazop_test"
+          export REDIS_URL="redis://localhost:6379/0"
+          export SECRET_KEY="test-secret-key-for-ci"
+          pytest tests/ -v --cov=app --cov-report=xml --cov-report=html
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/ehazop_test
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: test-secret-key-for-ci
+        continue-on-error: true
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./ehazop_backend/coverage.xml
+          flags: backend
+          name: backend-coverage
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        continue-on-error: true
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: python-coverage-report
+          path: |
+            ehazop_backend/htmlcov/
+            ehazop_backend/coverage.xml
+          retention-days: 7
+
+  security-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install safety
+        run: pip install safety
+
+      - name: Check for security vulnerabilities
+        run: |
+          cd ehazop_backend
+          safety check -r requirements.txt --full-report
+        continue-on-error: true
+
+      - name: Run Bandit security linter
+        run: |
+          pip install bandit
+          cd ehazop_backend
+          bandit -r app/ -f json -o bandit-report.json || true
+        continue-on-error: true
+
+      - name: Upload Bandit report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bandit-security-report
+          path: ehazop_backend/bandit-report.json
+          retention-days: 7

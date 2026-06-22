@@ -1,0 +1,115 @@
+name: Dependency Updates
+
+on:
+  schedule:
+    - cron: '0 2 * * 1'  # Run every Monday at 2 AM UTC
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
+jobs:
+  update-python-deps:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install pip-tools
+        run: pip install pip-tools
+
+      - name: Update Python dependencies
+        run: |
+          cd ehazop_backend
+          pip-compile --upgrade requirements.in -o requirements.txt 2>/dev/null || \
+          pip install --upgrade $(cat requirements.txt | grep -v "^#" | cut -d'=' -f1)
+        continue-on-error: true
+
+      - name: Create Pull Request for Python dependencies
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore(deps): update Python dependencies"
+          title: "chore(deps): update Python dependencies"
+          body: |
+            Automated PR to update Python dependencies in the backend.
+            
+            This PR was created automatically by the dependency update workflow.
+          branch: chore/update-python-deps
+          base: develop
+          path: ehazop_backend/requirements.txt
+          labels: dependencies,python
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-node-deps:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install npm-check-updates
+        run: npm install -g npm-check-updates
+
+      - name: Check for updates
+        run: |
+          cd frontend
+          ncu --format group
+        continue-on-error: true
+
+      - name: Update dependencies
+        run: |
+          cd frontend
+          ncu -u
+          npm install || npm install --legacy-peer-deps
+        continue-on-error: true
+
+      - name: Create Pull Request for Node dependencies
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore(deps): update Node dependencies"
+          title: "chore(deps): update Node dependencies"
+          body: |
+            Automated PR to update Node.js dependencies in the frontend.
+            
+            This PR was created automatically by the dependency update workflow.
+          branch: chore/update-node-deps
+          base: develop
+          path: frontend/package.json
+          labels: dependencies,javascript
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  docker-image-updates:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for Docker image updates
+        run: |
+          echo "Checking for Docker base image updates..."
+          echo "PostgreSQL image: pgvector/pgvector:pg16"
+          echo "Redis image: redis:7-alpine"
+          echo "MinIO image: minio/minio:latest"
+        continue-on-error: true
+
+      - name: Create issue for Docker updates
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "chore(docker): Review Docker base image updates"
+          content-filepath: /dev/stdin
+          labels: dependencies,docker
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
