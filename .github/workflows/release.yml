@@ -4,10 +4,6 @@ on:
   push:
     branches: [main]
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -18,13 +14,13 @@ jobs:
       pull-requests: write
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e
         with:
           node-version: '24'
 
@@ -35,7 +31,7 @@ jobs:
 
       - name: Create Release Pull Request or Publish to npm
         id: changesets
-        uses: changesets/action@v1.4.2
+        uses: changesets/action@297d0992fda6ad5a624c5f64b4bad33ed49543b7
         with:
           cwd: ./frontend
           commit: "chore: version packages"
@@ -56,7 +52,7 @@ jobs:
 
       - name: Create GitHub Release for Backend
         if: steps.changesets.outputs.published == 'true'
-        uses: softprops/action-gh-release@v2.2.0
+        uses: softprops/action-gh-release@7b4da11513bf3f43f9999e90eabced41ab8bb048
         with:
           tag_name: backend-v${{ steps.version.outputs.version }}
           name: Backend Release v${{ steps.version.outputs.version }}
