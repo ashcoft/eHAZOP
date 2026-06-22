@@ -1,8 +1,8 @@
 import React from 'react'
-import { Table, Button, Card, Space, Tag, Input, Select, Row, Col } from 'antd'
+import { Table, Card, Tag, Input, Select, Row, Col } from 'antd'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { nodesApi, deviationsApi } from '../../api/client'
+import { nodesApi } from '../../api/client'
 
 const Worksheet: React.FC = () => {
   const { studyId } = useParams<{ studyId: string }>()
@@ -53,11 +53,11 @@ const Worksheet: React.FC = () => {
           rowKey="id"
           pagination={false}
           expandable={{
-            expandedRowRender: (record) => (
+            expandedRowRender: (record: any) => (
               <div style={{ padding: '8px 0' }}>
-                <p><strong>Design Intent:</strong> {record.design_intent || 'N/A'}</p>
-                <p><strong>Equipment:</strong> {record.equipment_type || 'N/A'}</p>
-                <p><strong>Deviation Count:</strong> {record.deviation_count || 0}</p>
+                <p><strong>Design Intent:</strong> {record?.design_intent || 'N/A'}</p>
+                <p><strong>Equipment:</strong> {record?.equipment_type || 'N/A'}</p>
+                <p><strong>Deviation Count:</strong> {record?.deviation_count || 0}</p>
               </div>
             ),
           }}

@@ -1,52 +1,69 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-.venv/
-ENV/
-.pytest_cache/
-.coverage
-htmlcov/
-.mypy_cache/
-.ruff_cache/
-
-# Node
+```
+# Dependencies
 node_modules/
-dist/
-dist-ssr/
-*.local
-.npm
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
+# Logs and temp files
+*.log
+*.tmp
 
 # Environment
 .env
 .env.local
+*.env.*
 
-# Docker
-docker-compose.override.yml
+# Editors
+.vscode/
+.idea/
 
-# Build
+# Build artifacts
+dist/
 build/
+target/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 *.egg-info/
+.eggs/
 
-# Storage
-storage/
-*.pdf
-*.xlsx
+# Compression
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
 
-# Logs
-*.log
-logs/
-
-# OS
+# OS generated files
 .DS_Store
 Thumbs.db
+
+# Testing
+.coverage
+coverage/
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# System
+*.swp
+*.swo
+```

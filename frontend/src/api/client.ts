@@ -146,9 +146,9 @@ export const llmApi = {
     apiClient.post(`/llm/suggest/${deviationId}`, null, {
       params: { suggestion_type: suggestionType, context },
     }),
-  acceptSuggestion: (deviationId: string, suggestionId: string) =>
+  acceptSuggestion: (_deviationId: string, suggestionId: string) =>
     apiClient.post(`/llm/suggestions/${suggestionId}/accept`),
-  rejectSuggestion: (deviationId: string, suggestionId: string) =>
+  rejectSuggestion: (_deviationId: string, suggestionId: string) =>
     apiClient.post(`/llm/suggestions/${suggestionId}/reject`),
 }
 
