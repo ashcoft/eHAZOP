@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
@@ -25,11 +26,11 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       user: null,
       isAuthenticated: false,
-      login: (accessToken, refreshToken, user) =>
+      login: (_accessToken, _refreshToken, _user) =>
         set({
-          accessToken,
-          refreshToken,
-          user,
+          accessToken: _accessToken,
+          refreshToken: _refreshToken,
+          user: _user,
           isAuthenticated: true,
         }),
       logout: () =>
@@ -39,7 +40,7 @@ export const useAuthStore = create<AuthState>()(
           user: null,
           isAuthenticated: false,
         }),
-      updateUser: (user) => set({ user }),
+      updateUser: (_user) => set({ user: _user }),
     }),
     {
       name: 'ehazop-auth',
@@ -50,22 +51,16 @@ export const useAuthStore = create<AuthState>()(
 // WebSocket connection store
 interface WSState {
   connected: boolean
-  studyId: string | null
-  presence: Record<string, any>
-  locks: Record<string, string>
-  connect: (studyId: string, token: string) => void
+  connect: (_studyId: string, _token: string) => void
   disconnect: () => void
-  updatePresence: (presence: Record<string, any>) => void
-  updateLocks: (locks: Record<string, string>) => void
+  updatePresence: (_presence: Record<string, any>) => void
+  updateLocks: (_locks: Record<string, string>) => void
 }
 
 export const useWSStore = create<WSState>((set) => ({
   connected: false,
-  studyId: null,
-  presence: {},
-  locks: {},
-  connect: (studyId, _token) => set({ connected: true, studyId }),
-  disconnect: () => set({ connected: false, studyId: null, presence: {}, locks: {} }),
-  updatePresence: (presence) => set({ presence }),
-  updateLocks: (locks) => set({ locks }),
+  connect: (_studyId, _token) => set({ connected: true }),
+  disconnect: () => set({ connected: false }),
+  updatePresence: (_presence) => set((state) => ({ ...state })),
+  updateLocks: (_locks) => set((state) => ({ ...state })),
 }))
