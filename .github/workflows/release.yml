@@ -1,26 +1,32 @@
-name: Auto Release with Changesets
+name: Semantic Release
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version bump (patch, minor, major, or specific version)'
+        required: false
+        default: 'patch'
 
 jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    
+
     permissions:
       contents: write
       pull-requests: write
-    
+
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
 
@@ -29,40 +35,137 @@ jobs:
           cd frontend
           npm install || npm install --legacy-peer-deps
 
-      - name: Create Release Pull Request or Publish to npm
-        id: changesets
-        uses: changesets/action@297d0992fda6ad5a624c5f64b4bad33ed49543b7
-        with:
-          cwd: ./frontend
-          commit: "chore: version packages"
-          title: "chore: version packages"
-          publish: npx changeset publish
-          createGithubReleases: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Install semantic-release
+        run: |
+          npm install -g semantic-release @semantic-release/git @semantic-release/github @semantic-release/release-notes-generator
 
-      - name: Get version from changesets
-        if: steps.changesets.outputs.published == 'true'
-        id: version
+      - name: Get current version
+        id: current-version
         run: |
           cd frontend
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "current-version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_VERSION"
 
-      - name: Create GitHub Release for Backend
-        if: steps.changesets.outputs.published == 'true'
-        uses: softprops/action-gh-release@7b4da11513bf3f43f9999e90eabced41ab8bb048
-        with:
-          tag_name: backend-v${{ steps.version.outputs.version }}
-          name: Backend Release v${{ steps.version.outputs.version }}
-          generate_release_notes: true
-          make_latest: true
+      - name: Calculate next version
+        id: next-version
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          CURRENT_VERSION: ${{ steps.current-version.outputs.current-version }}
+        run: |
+          # Validate and sanitize version input to prevent command injection
+          validate_version() {
+            local input="$1"
+            # Only allow alphanumeric, dots, and dashes
+            if ! echo "$input" | grep -qE '^[a-zA-Z0-9._-]+$'; then
+              echo "Error: Invalid characters in version input"
+              exit 1
+            fi
+            # Check against whitelist patterns
+            if [[ "$input" =~ ^(patch|minor|major)$ ]]; then
+              return 0
+            elif [[ "$input" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              return 0
+            else
+              echo "Error: Invalid version format. Use patch, minor, major, or X.Y.Z"
+              exit 1
+            fi
+          }
+          
+          # Get bump type from input with validation
+          if [ -n "$INPUT_VERSION" ]; then
+            if ! validate_version "$INPUT_VERSION"; then
+              exit 1
+            fi
+            BUMP_TYPE="$INPUT_VERSION"
+          else
+            # Auto-detect bump type from commit messages
+            BUMP_TYPE="patch"
+            if git log --format=%B -1 HEAD | grep -qi "breaking"; then
+              BUMP_TYPE="major"
+            elif git log --format=%B -1 HEAD | grep -qiE "^feat:"; then
+              BUMP_TYPE="minor"
+            fi
+          fi
+          
+          # Write validated bump type to output
+          echo "bump-type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+          
+          # Calculate new version using Node.js with proper input handling
+          node -e "
+            const current = '$CURRENT_VERSION'.split('.').map(Number);
+            const bumpType = '$BUMP_TYPE';
+            
+            // Validate bump type in JS as well
+            if (!['major', 'minor', 'patch'].includes(bumpType) && !/^\d+\.\d+\.\d+$/.test(bumpType)) {
+              console.error('Invalid bump type');
+              process.exit(1);
+            }
+            
+            let [major, minor, patch] = current;
+            
+            if (bumpType === 'major') {
+              major += 1; minor = 0; patch = 0;
+            } else if (bumpType === 'minor') {
+              minor += 1; patch = 0;
+            } else if (bumpType === 'patch') {
+              patch += 1;
+            } else {
+              // Specific version provided
+              const parts = bumpType.split('.');
+              major = parseInt(parts[0], 10);
+              minor = parseInt(parts[1], 10);
+              patch = parseInt(parts[2], 10);
+            }
+            
+            console.log(major + '.' + minor + '.' + patch);
+          " > version_output.txt
+          
+          VERSION=$(cat version_output.txt)
+          echo "next-version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Next version: $VERSION (bump: $BUMP_TYPE)"
+
+      - name: Update frontend version
+        env:
+          NEW_VERSION: ${{ steps.next-version.outputs.next-version }}
+        run: |
+          cd frontend
+          npm version "$NEW_VERSION" --no-git-tag-version
+
+      - name: Update docker-compose.yml versions
+        env:
+          NEW_VERSION: ${{ steps.next-version.outputs.next-version }}
+        run: |
+          # Escape version for use in sed pattern
+          ESCAPED_VERSION=$(echo "$NEW_VERSION" | sed 's/\./\\./g')
+          sed -i "s|ehazop/backend:[^ ]*|ehazop/backend:$ESCAPED_VERSION|g" docker-compose.yml
+          sed -i "s|ehazop/frontend:[^ ]*|ehazop/frontend:$ESCAPED_VERSION|g" docker-compose.yml
+
+      - name: Create GitHub Release
+        id: release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ steps.next-version.outputs.next-version }}
+        with:
+          tag_name: v${{ env.RELEASE_VERSION }}
+          name: Release v${{ env.RELEASE_VERSION }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          make_latest: true
 
-      - name: Trigger Docker build on release
-        if: steps.changesets.outputs.published == 'true'
+      - name: Create git tag and commit
+        env:
+          RELEASE_VERSION: ${{ steps.next-version.outputs.next-version }}
         run: |
-          echo "Release published: ${{ steps.version.outputs.version }}"
-          echo "Docker images will be built and pushed automatically"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Escape version for commit message
+          ESCAPED_VERSION=$(echo "$RELEASE_VERSION" | sed 's/"/\\"/g')
+          
+          git add -A
+          git tag -a "v$RELEASE_VERSION" -m "Release v$RELEASE_VERSION"
+          git commit -m "chore: bump version to $ESCAPED_VERSION"
+          git push origin "v$RELEASE_VERSION" && git push origin HEAD:main
