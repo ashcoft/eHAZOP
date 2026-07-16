@@ -1,6 +1,5 @@
 """File storage abstraction service."""
 
-import hashlib
 import os
 import re
 import uuid

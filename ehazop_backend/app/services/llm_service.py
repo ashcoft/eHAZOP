@@ -36,9 +36,9 @@ class GeminiProvider(LLMProvider):
         """Generate text using Gemini API."""
         try:
             from google.genai import client as genai_client
-            
+
             genai = genai_client.Client(api_key=self.api_key)
-            
+
             response = genai.models.generate_content(
                 model=self.model,
                 contents=prompt,
@@ -52,9 +52,9 @@ class GeminiProvider(LLMProvider):
         """Generate embeddings using Gemini."""
         try:
             from google.genai import client as genai_client
-            
+
             genai = genai_client.Client(api_key=self.api_key)
-            
+
             result = genai.models.embed_content(
                 model=settings.LLM_EMBEDDING_MODEL,
                 contents=text,
@@ -159,9 +159,20 @@ class LLMService:
     ) -> str:
         """Build a prompt for generating suggestions."""
         type_prompts = {
-            "cause": "Identify specific potential causes that could lead to this deviation. Consider equipment failure, human error, procedural failures, and external factors.",
-            "consequence": "Describe the potential consequences of this deviation. Consider safety impacts, operational impacts, environmental impacts, and asset damage.",
-            "safeguard": "Suggest existing safeguards or protective measures that may already be in place to prevent or mitigate this deviation.",
+            "cause": (
+                "Identify specific potential causes that could lead to this deviation. "
+                "Consider equipment failure, human error, procedural failures, "
+                "and external factors."
+            ),
+            "consequence": (
+                "Describe the potential consequences of this deviation. "
+                "Consider safety impacts, operational impacts, environmental impacts, "
+                "and asset damage."
+            ),
+            "safeguard": (
+                "Suggest existing safeguards or protective measures that may already "
+                "be in place to prevent or mitigate this deviation."
+            ),
         }
 
         prompt = f"""You are a safety engineering expert helping with a {study_type} study.
