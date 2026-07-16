@@ -87,7 +87,7 @@ class LLMService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
-        self._provider = None
+        self._provider: LLMProvider | None = None
 
     @property
     def provider(self) -> LLMProvider:
