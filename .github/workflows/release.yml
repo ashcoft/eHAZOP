@@ -140,7 +140,7 @@ jobs:
 
       - name: Create GitHub Release
         id: release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         with:
           tag_name: v${{ steps.next-version.outputs.next-version }}
           name: Release v${{ steps.next-version.outputs.next-version }}
