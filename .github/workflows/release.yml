@@ -50,44 +50,78 @@ jobs:
       - name: Calculate next version
         id: next-version
         run: |
+          # Validate and sanitize version input to prevent command injection
+          validate_version() {
+            local input="$1"
+            # Only allow alphanumeric, dots, and dashes
+            if ! echo "$input" | grep -qE '^[a-zA-Z0-9._-]+$'; then
+              echo "Error: Invalid characters in version input"
+              exit 1
+            fi
+            # Check against whitelist patterns
+            if [[ "$input" =~ ^(patch|minor|major)$ ]]; then
+              return 0
+            elif [[ "$input" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              return 0
+            else
+              echo "Error: Invalid version format. Use patch, minor, major, or X.Y.Z"
+              exit 1
+            fi
+          }
+
           CURRENT="${{ steps.current-version.outputs.current-version }}"
           
+          # Get bump type from input with validation
           if [ -n "${{ github.event.inputs.version }}" ]; then
-            BUMP_TYPE="${{ github.event.inputs.version }}"
+            INPUT_VERSION="${{ github.event.inputs.version }}"
+            if ! validate_version "$INPUT_VERSION"; then
+              exit 1
+            fi
+            BUMP_TYPE="$INPUT_VERSION"
           else
             # Auto-detect bump type from commit messages
             BUMP_TYPE="patch"
-            git log --format=%B -1 HEAD | grep -iq "breaking" && BUMP_TYPE="major"
-            git log --format=%B -1 HEAD | grep -iqE "feat:" && BUMP_TYPE="minor"
+            if git log --format=%B -1 HEAD | grep -qi "breaking"; then
+              BUMP_TYPE="major"
+            elif git log --format=%B -1 HEAD | grep -qiE "^feat:"; then
+              BUMP_TYPE="minor"
+            fi
           fi
           
-          # Calculate new version using Node.js
-          VERSION=$(node -e "
+          # Write validated bump type to output
+          echo "bump-type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+          
+          # Calculate new version using Node.js with proper input handling
+          node -e "
             const current = '$CURRENT'.split('.').map(Number);
-            const [major, minor, patch] = current;
-            let newMajor = major, newMinor = minor, newPatch = patch;
-            
             const bumpType = '$BUMP_TYPE';
+            
+            // Validate bump type in JS as well
+            if (!['major', 'minor', 'patch'].includes(bumpType) && !/^\d+\.\d+\.\d+$/.test(bumpType)) {
+              console.error('Invalid bump type');
+              process.exit(1);
+            }
+            
+            let [major, minor, patch] = current;
+            
             if (bumpType === 'major') {
-              newMajor = major + 1; newMinor = 0; newPatch = 0;
+              major += 1; minor = 0; patch = 0;
             } else if (bumpType === 'minor') {
-              newMinor = minor + 1; newPatch = 0;
+              minor += 1; patch = 0;
             } else if (bumpType === 'patch') {
-              newPatch = patch + 1;
+              patch += 1;
             } else {
               // Specific version provided
               const parts = bumpType.split('.');
-              if (parts.length === 3) {
-                newMajor = parseInt(parts[0]);
-                newMinor = parseInt(parts[1]);
-                newPatch = parseInt(parts[2]);
-              }
+              major = parseInt(parts[0], 10);
+              minor = parseInt(parts[1], 10);
+              patch = parseInt(parts[2], 10);
             }
             
-            console.log(\`\${newMajor}.\${newMinor}.\${newPatch}\`);
-          ")
+            console.log(major + '.' + minor + '.' + patch);
+          " > version_output.txt
           
-          echo "bump-type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+          VERSION=$(cat version_output.txt)
           echo "next-version=$VERSION" >> $GITHUB_OUTPUT
           echo "Next version: $VERSION (bump: $BUMP_TYPE)"
 
@@ -96,10 +130,13 @@ jobs:
           cd frontend
           npm version ${{ steps.next-version.outputs.next-version }} --no-git-tag-version
 
-      - name: Update backend version in Dockerfile
+      - name: Update docker-compose.yml versions
         run: |
-          sed -i 's|ehazop/backend:.*|ehazop/backend:${{ steps.next-version.outputs.next-version }}|' docker-compose.yml
-          sed -i 's|ehazop/frontend:.*|ehazop/frontend:${{ steps.next-version.outputs.next-version }}|' docker-compose.yml
+          VERSION="${{ steps.next-version.outputs.next-version }}"
+          # Escape version for use in sed pattern
+          ESCAPED_VERSION=$(echo "$VERSION" | sed 's/\./\\./g')
+          sed -i "s|ehazop/backend:[^ ]*|ehazop/backend:$ESCAPED_VERSION|g" docker-compose.yml
+          sed -i "s|ehazop/frontend:[^ ]*|ehazop/frontend:$ESCAPED_VERSION|g" docker-compose.yml
 
       - name: Create GitHub Release
         id: release
@@ -114,20 +151,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create git tag
+      - name: Create git tag and commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          VERSION="${{ steps.next-version.outputs.next-version }}"
+          # Escape version for commit message
+          ESCAPED_VERSION=$(echo "$VERSION" | sed 's/"/\\"/g')
+          
           git add -A
-          git tag -a v${{ steps.next-version.outputs.next-version }} -m "Release v${{ steps.next-version.outputs.next-version }}"
-          git push origin v${{ steps.next-version.outputs.next-version }}
-
-      - name: Commit and push version bump
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "chore: bump version to ${{ steps.next-version.outputs.next-version }}"
-          git push origin HEAD:main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          git tag -a "v$VERSION" -m "Release v$VERSION"
+          git commit -m "chore: bump version to $ESCAPED_VERSION"
+          git push origin "v$VERSION" && git push origin HEAD:main
