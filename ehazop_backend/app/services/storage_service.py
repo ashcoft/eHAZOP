@@ -2,6 +2,7 @@
 
 import hashlib
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -66,14 +67,24 @@ class StorageService:
         """Upload file to local storage."""
         # Sanitize filename to prevent path traversal attacks
         safe_filename = os.path.basename(filename)
-        if not safe_filename or safe_filename.startswith('.'):
+        safe_filename = re.sub(r"[^A-Za-z0-9._-]", "_", safe_filename)
+        if (
+            not safe_filename
+            or safe_filename in {".", ".."}
+            or safe_filename.startswith(".")
+        ):
             safe_filename = f"file_{file_id}"
-        
-        storage_path = os.path.join(settings.STORAGE_LOCAL_PATH, date_str)
+
+        base_storage_root = os.path.realpath(settings.STORAGE_LOCAL_PATH)
+        storage_path = os.path.realpath(os.path.join(base_storage_root, date_str))
+        if os.path.commonpath([base_storage_root, storage_path]) != base_storage_root:
+            raise ValueError("Invalid storage path")
         os.makedirs(storage_path, exist_ok=True)
 
-        file_path = os.path.join(storage_path, f"{file_id}_{safe_filename}")
-        
+        file_path = os.path.realpath(os.path.join(storage_path, f"{file_id}_{safe_filename}"))
+        if os.path.commonpath([base_storage_root, file_path]) != base_storage_root:
+            raise ValueError("Invalid file path")
+
         with open(file_path, "wb") as f:
             f.write(content)
 
