@@ -82,7 +82,7 @@ async def register(
 ):
     """Register a new user."""
     auth_service = AuthService(db)
-    
+
     # Check if user already exists
     existing = await auth_service.get_user_by_email(user_data.email)
     if existing:
