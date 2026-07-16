@@ -36,7 +36,7 @@ async def generate_pdf_report(
             include_safeguards=include_safeguards,
             include_actions=include_actions,
         )
-        
+
         # Save report to storage
         filename = f"report_{study_id}.pdf"
         result = await report_service.save_report(
@@ -45,7 +45,7 @@ async def generate_pdf_report(
             content=pdf_bytes,
             filename=filename,
         )
-        
+
         return {
             "status": "success",
             "document_id": result["document_id"],
@@ -80,7 +80,7 @@ async def generate_excel_report(
     report_service = ReportService(db)
     try:
         excel_bytes = await report_service.generate_excel_report(study_id)
-        
+
         # Save report to storage
         filename = f"worksheet_{study_id}.xlsx"
         result = await report_service.save_report(
@@ -89,7 +89,7 @@ async def generate_excel_report(
             content=excel_bytes,
             filename=filename,
         )
-        
+
         return {
             "status": "success",
             "document_id": result["document_id"],
@@ -117,14 +117,14 @@ async def download_report(
     """Download a generated report."""
     from app.services.storage_service import StorageService
     storage_service = StorageService(db)
-    
+
     content = await storage_service.download_file(document_id)
     if content is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Report not found",
         )
-    
+
     return Response(
         content=content,
         media_type="application/octet-stream",
