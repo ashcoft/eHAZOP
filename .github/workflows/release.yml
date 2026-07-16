@@ -49,6 +49,9 @@ jobs:
 
       - name: Calculate next version
         id: next-version
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          CURRENT_VERSION: ${{ steps.current-version.outputs.current-version }}
         run: |
           # Validate and sanitize version input to prevent command injection
           validate_version() {
@@ -68,12 +71,9 @@ jobs:
               exit 1
             fi
           }
-
-          CURRENT="${{ steps.current-version.outputs.current-version }}"
           
           # Get bump type from input with validation
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            INPUT_VERSION="${{ github.event.inputs.version }}"
+          if [ -n "$INPUT_VERSION" ]; then
             if ! validate_version "$INPUT_VERSION"; then
               exit 1
             fi
@@ -93,7 +93,7 @@ jobs:
           
           # Calculate new version using Node.js with proper input handling
           node -e "
-            const current = '$CURRENT'.split('.').map(Number);
+            const current = '$CURRENT_VERSION'.split('.').map(Number);
             const bumpType = '$BUMP_TYPE';
             
             // Validate bump type in JS as well
@@ -126,41 +126,46 @@ jobs:
           echo "Next version: $VERSION (bump: $BUMP_TYPE)"
 
       - name: Update frontend version
+        env:
+          NEW_VERSION: ${{ steps.next-version.outputs.next-version }}
         run: |
           cd frontend
-          npm version ${{ steps.next-version.outputs.next-version }} --no-git-tag-version
+          npm version "$NEW_VERSION" --no-git-tag-version
 
       - name: Update docker-compose.yml versions
+        env:
+          NEW_VERSION: ${{ steps.next-version.outputs.next-version }}
         run: |
-          VERSION="${{ steps.next-version.outputs.next-version }}"
           # Escape version for use in sed pattern
-          ESCAPED_VERSION=$(echo "$VERSION" | sed 's/\./\\./g')
+          ESCAPED_VERSION=$(echo "$NEW_VERSION" | sed 's/\./\\./g')
           sed -i "s|ehazop/backend:[^ ]*|ehazop/backend:$ESCAPED_VERSION|g" docker-compose.yml
           sed -i "s|ehazop/frontend:[^ ]*|ehazop/frontend:$ESCAPED_VERSION|g" docker-compose.yml
 
       - name: Create GitHub Release
         id: release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ steps.next-version.outputs.next-version }}
         with:
-          tag_name: v${{ steps.next-version.outputs.next-version }}
-          name: Release v${{ steps.next-version.outputs.next-version }}
+          tag_name: v${{ env.RELEASE_VERSION }}
+          name: Release v${{ env.RELEASE_VERSION }}
           draft: false
           prerelease: false
           generate_release_notes: true
           make_latest: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create git tag and commit
+        env:
+          RELEASE_VERSION: ${{ steps.next-version.outputs.next-version }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          VERSION="${{ steps.next-version.outputs.next-version }}"
           # Escape version for commit message
-          ESCAPED_VERSION=$(echo "$VERSION" | sed 's/"/\\"/g')
+          ESCAPED_VERSION=$(echo "$RELEASE_VERSION" | sed 's/"/\\"/g')
           
           git add -A
-          git tag -a "v$VERSION" -m "Release v$VERSION"
+          git tag -a "v$RELEASE_VERSION" -m "Release v$RELEASE_VERSION"
           git commit -m "chore: bump version to $ESCAPED_VERSION"
-          git push origin "v$VERSION" && git push origin HEAD:main
+          git push origin "v$RELEASE_VERSION" && git push origin HEAD:main
