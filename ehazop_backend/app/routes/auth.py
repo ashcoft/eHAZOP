@@ -30,7 +30,7 @@ async def login(
     """Authenticate user and return tokens."""
     auth_service = AuthService(db)
     user = await auth_service.authenticate_user(login_data.email, login_data.password)
-    
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -52,6 +52,8 @@ async def refresh_token(
     try:
         payload = verify_refresh_token(refresh_data.refresh_token)
         user_id = payload.get("sub")
+        if not isinstance(user_id, str):
+            raise ValueError("Invalid token payload")
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -61,7 +63,7 @@ async def refresh_token(
 
     auth_service = AuthService(db)
     user = await auth_service.get_user_by_id(user_id)
-    
+
     if not user or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -80,7 +82,7 @@ async def register(
 ):
     """Register a new user."""
     auth_service = AuthService(db)
-    
+
     # Check if user already exists
     existing = await auth_service.get_user_by_email(user_data.email)
     if existing:
