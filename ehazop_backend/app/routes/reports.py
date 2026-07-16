@@ -1,5 +1,7 @@
 """Report generation routes."""
 
+import re
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +11,7 @@ from app.core.dependencies import get_current_user
 from app.services.report_service import ReportService
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
+STUDY_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 @router.post("/generate/{study_id}/pdf")
@@ -20,6 +23,12 @@ async def generate_pdf_report(
     current_user=Depends(get_current_user),
 ):
     """Generate a PDF report for a study."""
+    if not STUDY_ID_PATTERN.fullmatch(study_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid study_id format",
+        )
+
     report_service = ReportService(db)
     try:
         pdf_bytes = await report_service.generate_pdf_report(
@@ -62,6 +71,12 @@ async def generate_excel_report(
     current_user=Depends(get_current_user),
 ):
     """Generate an Excel report for a study."""
+    if not STUDY_ID_PATTERN.fullmatch(study_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid study_id format",
+        )
+
     report_service = ReportService(db)
     try:
         excel_bytes = await report_service.generate_excel_report(study_id)
