@@ -1,7 +1,7 @@
 """File storage abstraction service."""
 
-import hashlib
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -36,19 +36,18 @@ class StorageService:
         # Generate unique file path
         file_id = str(uuid.uuid4())
         date_str = datetime.now(timezone.utc).strftime("%Y/%m/%d")
-        
+
         if settings.STORAGE_TYPE == "local":
             return await self._upload_local(
                 content, filename, file_id, date_str, file_type, study_id,
                 document_type, mime_type, is_confidential, uploaded_by_id
             )
-        elif settings.STORAGE_TYPE in ["s3", "minio"]:
+        if settings.STORAGE_TYPE in ["s3", "minio"]:
             return await self._upload_s3(
                 content, filename, file_id, date_str, file_type, study_id,
                 document_type, mime_type, is_confidential, uploaded_by_id
             )
-        else:
-            raise ValueError(f"Unsupported storage type: {settings.STORAGE_TYPE}")
+        raise ValueError(f"Unsupported storage type: {settings.STORAGE_TYPE}")
 
     async def _upload_local(
         self,
@@ -66,14 +65,24 @@ class StorageService:
         """Upload file to local storage."""
         # Sanitize filename to prevent path traversal attacks
         safe_filename = os.path.basename(filename)
-        if not safe_filename or safe_filename.startswith('.'):
+        safe_filename = re.sub(r"[^A-Za-z0-9._-]", "_", safe_filename)
+        if (
+            not safe_filename
+            or safe_filename in {".", ".."}
+            or safe_filename.startswith(".")
+        ):
             safe_filename = f"file_{file_id}"
-        
-        storage_path = os.path.join(settings.STORAGE_LOCAL_PATH, date_str)
+
+        base_storage_root = os.path.realpath(settings.STORAGE_LOCAL_PATH)
+        storage_path = os.path.realpath(os.path.join(base_storage_root, date_str))
+        if os.path.commonpath([base_storage_root, storage_path]) != base_storage_root:
+            raise ValueError("Invalid storage path")
         os.makedirs(storage_path, exist_ok=True)
 
-        file_path = os.path.join(storage_path, f"{file_id}_{safe_filename}")
-        
+        file_path = os.path.realpath(os.path.join(storage_path, f"{file_id}_{safe_filename}"))
+        if os.path.commonpath([base_storage_root, file_path]) != base_storage_root:
+            raise ValueError("Invalid file path")
+
         with open(file_path, "wb") as f:
             f.write(content)
 
@@ -119,7 +128,7 @@ class StorageService:
         # For S3/MinIO, would use boto3
         # This is a placeholder implementation
         bucket_path = f"{date_str}/{file_id}_{filename}"
-        
+
         # In production, use boto3 to upload to S3/MinIO
         # For now, just create the document record
         document = Document(
@@ -161,7 +170,7 @@ class StorageService:
                     return f.read()
             except Exception:
                 return None
-        elif document.storage_backend in ["s3", "minio"]:
+        if document.storage_backend in ["s3", "minio"]:
             # Would use boto3 to download
             return None
 
@@ -183,7 +192,7 @@ class StorageService:
         if document.storage_backend == "local":
             # For local storage, return a simple path or generate signed token
             return f"/api/v1/documents/{document_id}/download"
-        elif document.storage_backend in ["s3", "minio"]:
+        if document.storage_backend in ["s3", "minio"]:
             # Would generate pre-signed URL using boto3
             return None
 
@@ -218,7 +227,7 @@ class StorageService:
     ) -> tuple[list[Document], int]:
         """List documents with filters."""
         query = select(Document)
-        
+
         if study_id:
             query = query.where(Document.study_id == study_id)
         if document_type:

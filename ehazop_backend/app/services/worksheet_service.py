@@ -1,6 +1,7 @@
 """Deviation and worksheet management service."""
 
 from datetime import datetime, timezone
+from typing import List
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,17 +11,14 @@ from app.models.hazard import (
     Cause,
     Consequence,
     Safeguard,
-    RiskRanking,
     LLMSuggestion,
 )
-from app.models.action import Recommendation
 from app.schemas.hazard import (
     DeviationCreate,
     DeviationUpdate,
     CauseCreate,
     ConsequenceCreate,
     SafeguardCreate,
-    RiskRankingCreate,
 )
 from app.core.websocket import manager
 
@@ -70,7 +68,7 @@ class WorksheetService:
         if node_id:
             query = query.where(Deviation.node_id == node_id)
             count_query = count_query.where(Deviation.node_id == node_id)
-        
+
         if study_id:
             from app.models.hazard import Node
             query = query.join(Node).where(Node.study_id == study_id)
@@ -165,7 +163,12 @@ class WorksheetService:
         )
         return list(result.scalars().all())
 
-    async def update_cause(self, cause_id: str, description: str | None = None, likelihood: str | None = None) -> Cause | None:
+    async def update_cause(
+        self,
+        cause_id: str,
+        description: str | None = None,
+        likelihood: str | None = None,
+    ) -> Cause | None:
         """Update a cause."""
         result = await self.db.execute(select(Cause).where(Cause.id == cause_id))
         cause = result.scalar_one_or_none()
@@ -332,7 +335,7 @@ class WorksheetService:
         suggestion.status = "accepted"
         suggestion.reviewed_by_id = user_id
         suggestion.reviewed_at = datetime.now(timezone.utc)
-        
+
         # Apply the suggestion to the deviation
         if suggestion.suggestion_type == "cause":
             cause = Cause(
@@ -385,7 +388,7 @@ class WorksheetService:
         base_reference: str = "D",
     ) -> list[Deviation]:
         """Apply guidewords to create deviations for a node."""
-        deviations = []
+        deviations: List[Deviation] = []
         for index, guideword_id in enumerate(guideword_ids):
             reference = f"{base_reference}-{len(deviations) + 1:03d}"
             deviation = Deviation(
