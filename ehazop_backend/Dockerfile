@@ -1,6 +1,6 @@
 # EHAZOP Backend Dockerfile
 
-FROM python:3.15-slim
+FROM python:3.15-rc-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
