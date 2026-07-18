@@ -1,6 +1,6 @@
 # EHAZOP Backend Dockerfile
 
-FROM python:3.15-rc-alpine
+FROM python:3.15-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -10,7 +10,7 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
 # Install system dependencies for WeasyPrint
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
     libgdk-pixbuf-2.0-0 \
@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y \
     fonts-dejavu-core \
     fonts-liberation \
     fontconfig \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
@@ -34,6 +35,10 @@ COPY alembic.ini .
 
 # Create storage directory
 RUN mkdir -p /app/storage
+
+# Create and use non-root user
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
 
 # Expose port
 EXPOSE 8000
