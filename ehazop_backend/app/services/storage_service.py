@@ -1,5 +1,6 @@
 """File storage abstraction service."""
 
+import logging
 import os
 import re
 import uuid
@@ -14,6 +15,7 @@ from app.core.config import get_settings
 from app.models.document import Document
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 def _is_path_within_storage(file_path: str, storage_root: str) -> bool:
@@ -180,6 +182,13 @@ class StorageService:
                 base_storage_root = os.path.normpath(os.path.realpath(settings.STORAGE_LOCAL_PATH))
                 resolved_path = os.path.normpath(os.path.realpath(document.file_path))
                 if not _is_path_within_storage(resolved_path, base_storage_root):
+                    logger.warning(
+                        "download_file: path containment check failed for document %s. "
+                        "File path '%s' is outside storage root '%s'",
+                        document_id,
+                        os.path.basename(document.file_path),
+                        base_storage_root,
+                    )
                     return None
                 async with aiofiles.open(resolved_path, "rb") as f:
                     return await f.read()
@@ -229,6 +238,14 @@ class StorageService:
                 if _is_path_within_storage(resolved_path, base_storage_root):
                     if os.path.exists(resolved_path):
                         os.remove(resolved_path)
+                else:
+                    logger.warning(
+                        "delete_file: path containment check failed for document %s. "
+                        "File path '%s' is outside storage root '%s', skipping file deletion",
+                        document_id,
+                        os.path.basename(document.file_path),
+                        base_storage_root,
+                    )
             except Exception:
                 pass
 
