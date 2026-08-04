@@ -1,11 +1,13 @@
 """File storage abstraction service."""
 
+import logging
 import os
 import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+import aiofiles
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +15,19 @@ from app.core.config import get_settings
 from app.models.document import Document
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
+
+
+def _is_path_within_storage(file_path: str, storage_root: str) -> bool:
+    """Check if file_path is within storage_root, handling ValueError from commonpath."""
+    try:
+        # Normalize paths to handle trailing slashes consistently
+        normalized_storage = os.path.normpath(storage_root)
+        return os.path.commonpath([normalized_storage, file_path]) == normalized_storage
+    except ValueError:
+        # os.path.commonpath raises ValueError when paths are on different drives (Windows)
+        # or when paths are relative/empty. Treat as unsafe in these cases.
+        return False
 
 
 class StorageService:
@@ -73,18 +88,18 @@ class StorageService:
         ):
             safe_filename = f"file_{file_id}"
 
-        base_storage_root = os.path.realpath(settings.STORAGE_LOCAL_PATH)
-        storage_path = os.path.realpath(os.path.join(base_storage_root, date_str))
-        if os.path.commonpath([base_storage_root, storage_path]) != base_storage_root:
+        base_storage_root = os.path.normpath(os.path.realpath(settings.STORAGE_LOCAL_PATH))
+        storage_path = os.path.normpath(os.path.realpath(os.path.join(base_storage_root, date_str)))
+        if not _is_path_within_storage(storage_path, base_storage_root):
             raise ValueError("Invalid storage path")
         os.makedirs(storage_path, exist_ok=True)
 
-        file_path = os.path.realpath(os.path.join(storage_path, f"{file_id}_{safe_filename}"))
-        if os.path.commonpath([base_storage_root, file_path]) != base_storage_root:
+        file_path = os.path.normpath(os.path.realpath(os.path.join(storage_path, f"{file_id}_{safe_filename}")))
+        if not _is_path_within_storage(file_path, base_storage_root):
             raise ValueError("Invalid file path")
 
-        with open(file_path, "wb") as f:
-            f.write(content)
+        async with aiofiles.open(file_path, "wb") as f:
+            await f.write(content)
 
         # Create document record
         document = Document(
@@ -166,9 +181,20 @@ class StorageService:
 
         if document.storage_backend == "local":
             try:
-                with open(document.file_path, "rb") as f:
-                    return f.read()
+                base_storage_root = os.path.normpath(os.path.realpath(settings.STORAGE_LOCAL_PATH))
+                resolved_path = os.path.normpath(os.path.realpath(document.file_path))
+                if not _is_path_within_storage(resolved_path, base_storage_root):
+                    logger.warning(
+                        "download_file: path containment check failed for document %s. "
+                        "File path '%s' is outside configured storage root",
+                        document_id,
+                        os.path.basename(document.file_path),
+                    )
+                    return None
+                async with aiofiles.open(resolved_path, "rb") as f:
+                    return await f.read()
             except Exception:
+                logger.exception("download_file: I/O error for document %s", document_id)
                 return None
         if document.storage_backend in ["s3", "minio"]:
             # Would use boto3 to download
@@ -209,10 +235,20 @@ class StorageService:
 
         if document.storage_backend == "local":
             try:
-                if os.path.exists(document.file_path):
-                    os.remove(document.file_path)
+                base_storage_root = os.path.normpath(os.path.realpath(settings.STORAGE_LOCAL_PATH))
+                resolved_path = os.path.normpath(os.path.realpath(document.file_path))
+                if _is_path_within_storage(resolved_path, base_storage_root):
+                    if os.path.exists(resolved_path):
+                        os.remove(resolved_path)
+                else:
+                    logger.warning(
+                        "delete_file: path containment check failed for document %s. "
+                        "File path '%s' is outside configured storage root, skipping file deletion",
+                        document_id,
+                        os.path.basename(document.file_path),
+                    )
             except Exception:
-                pass
+                logger.exception("delete_file: error for document %s", document_id)
 
         await self.db.delete(document)
         await self.db.flush()
