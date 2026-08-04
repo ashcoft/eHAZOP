@@ -168,7 +168,11 @@ class StorageService:
             try:
                 base_storage_root = os.path.normpath(os.path.realpath(settings.STORAGE_LOCAL_PATH))
                 resolved_path = os.path.normpath(os.path.realpath(document.file_path))
-                if os.path.commonpath([base_storage_root, resolved_path]) != base_storage_root:
+                try:
+                    is_contained = os.path.commonpath([base_storage_root, resolved_path]) == base_storage_root
+                except ValueError:
+                    return None
+                if not is_contained:
                     return None
                 with open(resolved_path, "rb") as f:
                     return f.read()
