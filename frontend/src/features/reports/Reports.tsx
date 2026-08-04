@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Card, Button, Space, message } from 'antd'
 import { FilePdfOutlined, FileExcelOutlined } from '@ant-design/icons'
-import { useParams } from 'react-router-dom'
+import { useParams } from 'react-router'
 import { useMutation } from '@tanstack/react-query'
 import { reportsApi } from '../../api/client'
 

@@ -1,6 +1,6 @@
 import React from 'react'
 import { Table, Card, Tag, Input, Select, Row, Col } from 'antd'
-import { useParams } from 'react-router-dom'
+import { useParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { nodesApi } from '../../api/client'
 

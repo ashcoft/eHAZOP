@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Table, Button, Input, Tag, Card, Modal, Form, Select, message } from 'antd'
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { studiesApi } from '../../api/client'
 
 const StudyList: React.FC = () => {

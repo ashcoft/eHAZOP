@@ -1,5 +1,5 @@
 import React from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link } from 'react-router'
 import { Card, Row, Col, Descriptions, Tag, Button, Tabs, Table, Space } from 'antd'
 import { 
   ArrowLeftOutlined, 
