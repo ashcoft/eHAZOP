@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+import aiofiles
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +14,16 @@ from app.core.config import get_settings
 from app.models.document import Document
 
 settings = get_settings()
+
+
+def _is_path_within_storage(file_path: str, storage_root: str) -> bool:
+    """Check if file_path is within storage_root, handling ValueError from commonpath."""
+    try:
+        return os.path.commonpath([storage_root, file_path]) == storage_root
+    except ValueError:
+        # os.path.commonpath raises ValueError when paths are on different drives (Windows)
+        # or when paths are relative/empty. Treat as unsafe in these cases.
+        return False
 
 
 class StorageService:
@@ -75,16 +86,16 @@ class StorageService:
 
         base_storage_root = os.path.normpath(os.path.realpath(settings.STORAGE_LOCAL_PATH))
         storage_path = os.path.normpath(os.path.realpath(os.path.join(base_storage_root, date_str)))
-        if os.path.commonpath([base_storage_root, storage_path]) != base_storage_root:
+        if not _is_path_within_storage(storage_path, base_storage_root):
             raise ValueError("Invalid storage path")
         os.makedirs(storage_path, exist_ok=True)
 
         file_path = os.path.normpath(os.path.realpath(os.path.join(storage_path, f"{file_id}_{safe_filename}")))
-        if os.path.commonpath([base_storage_root, file_path]) != base_storage_root:
+        if not _is_path_within_storage(file_path, base_storage_root):
             raise ValueError("Invalid file path")
 
-        with open(file_path, "wb") as f:
-            f.write(content)
+        async with aiofiles.open(file_path, "wb") as f:
+            await f.write(content)
 
         # Create document record
         document = Document(
@@ -168,14 +179,10 @@ class StorageService:
             try:
                 base_storage_root = os.path.normpath(os.path.realpath(settings.STORAGE_LOCAL_PATH))
                 resolved_path = os.path.normpath(os.path.realpath(document.file_path))
-                try:
-                    is_contained = os.path.commonpath([base_storage_root, resolved_path]) == base_storage_root
-                except ValueError:
+                if not _is_path_within_storage(resolved_path, base_storage_root):
                     return None
-                if not is_contained:
-                    return None
-                with open(resolved_path, "rb") as f:
-                    return f.read()
+                async with aiofiles.open(resolved_path, "rb") as f:
+                    return await f.read()
             except Exception:
                 return None
         if document.storage_backend in ["s3", "minio"]:
@@ -219,7 +226,7 @@ class StorageService:
             try:
                 base_storage_root = os.path.normpath(os.path.realpath(settings.STORAGE_LOCAL_PATH))
                 resolved_path = os.path.normpath(os.path.realpath(document.file_path))
-                if os.path.commonpath([base_storage_root, resolved_path]) == base_storage_root:
+                if _is_path_within_storage(resolved_path, base_storage_root):
                     if os.path.exists(resolved_path):
                         os.remove(resolved_path)
             except Exception:
