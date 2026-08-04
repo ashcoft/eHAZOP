@@ -3,8 +3,6 @@
 import os
 import tempfile
 
-import pytest
-
 from app.services.storage_service import _is_path_within_storage
 
 
