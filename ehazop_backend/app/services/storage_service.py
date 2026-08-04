@@ -73,13 +73,13 @@ class StorageService:
         ):
             safe_filename = f"file_{file_id}"
 
-        base_storage_root = os.path.realpath(settings.STORAGE_LOCAL_PATH)
-        storage_path = os.path.realpath(os.path.join(base_storage_root, date_str))
+        base_storage_root = os.path.normpath(os.path.realpath(settings.STORAGE_LOCAL_PATH))
+        storage_path = os.path.normpath(os.path.realpath(os.path.join(base_storage_root, date_str)))
         if os.path.commonpath([base_storage_root, storage_path]) != base_storage_root:
             raise ValueError("Invalid storage path")
         os.makedirs(storage_path, exist_ok=True)
 
-        file_path = os.path.realpath(os.path.join(storage_path, f"{file_id}_{safe_filename}"))
+        file_path = os.path.normpath(os.path.realpath(os.path.join(storage_path, f"{file_id}_{safe_filename}")))
         if os.path.commonpath([base_storage_root, file_path]) != base_storage_root:
             raise ValueError("Invalid file path")
 
@@ -166,7 +166,11 @@ class StorageService:
 
         if document.storage_backend == "local":
             try:
-                with open(document.file_path, "rb") as f:
+                base_storage_root = os.path.normpath(os.path.realpath(settings.STORAGE_LOCAL_PATH))
+                resolved_path = os.path.normpath(os.path.realpath(document.file_path))
+                if os.path.commonpath([base_storage_root, resolved_path]) != base_storage_root:
+                    return None
+                with open(resolved_path, "rb") as f:
                     return f.read()
             except Exception:
                 return None
@@ -209,8 +213,11 @@ class StorageService:
 
         if document.storage_backend == "local":
             try:
-                if os.path.exists(document.file_path):
-                    os.remove(document.file_path)
+                base_storage_root = os.path.normpath(os.path.realpath(settings.STORAGE_LOCAL_PATH))
+                resolved_path = os.path.normpath(os.path.realpath(document.file_path))
+                if os.path.commonpath([base_storage_root, resolved_path]) == base_storage_root:
+                    if os.path.exists(resolved_path):
+                        os.remove(resolved_path)
             except Exception:
                 pass
 
