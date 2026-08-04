@@ -21,7 +21,9 @@ logger = logging.getLogger(__name__)
 def _is_path_within_storage(file_path: str, storage_root: str) -> bool:
     """Check if file_path is within storage_root, handling ValueError from commonpath."""
     try:
-        return os.path.commonpath([storage_root, file_path]) == storage_root
+        # Normalize paths to handle trailing slashes consistently
+        normalized_storage = os.path.normpath(storage_root)
+        return os.path.commonpath([normalized_storage, file_path]) == normalized_storage
     except ValueError:
         # os.path.commonpath raises ValueError when paths are on different drives (Windows)
         # or when paths are relative/empty. Treat as unsafe in these cases.
@@ -184,15 +186,15 @@ class StorageService:
                 if not _is_path_within_storage(resolved_path, base_storage_root):
                     logger.warning(
                         "download_file: path containment check failed for document %s. "
-                        "File path '%s' is outside storage root '%s'",
+                        "File path '%s' is outside configured storage root",
                         document_id,
                         os.path.basename(document.file_path),
-                        base_storage_root,
                     )
                     return None
                 async with aiofiles.open(resolved_path, "rb") as f:
                     return await f.read()
             except Exception:
+                logger.exception("download_file: I/O error for document %s", document_id)
                 return None
         if document.storage_backend in ["s3", "minio"]:
             # Would use boto3 to download
@@ -241,13 +243,12 @@ class StorageService:
                 else:
                     logger.warning(
                         "delete_file: path containment check failed for document %s. "
-                        "File path '%s' is outside storage root '%s', skipping file deletion",
+                        "File path '%s' is outside configured storage root, skipping file deletion",
                         document_id,
                         os.path.basename(document.file_path),
-                        base_storage_root,
                     )
             except Exception:
-                pass
+                logger.exception("delete_file: error for document %s", document_id)
 
         await self.db.delete(document)
         await self.db.flush()

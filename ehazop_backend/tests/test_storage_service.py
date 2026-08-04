@@ -90,9 +90,7 @@ class TestIsPathWithinStorage:
 
     def test_path_within_storage_trailing_slash(self):
         """Test path validation with trailing slash in storage root."""
-        # os.path.normpath normalizes trailing slashes, so we need to test
-        # with paths that have been normalized
-        storage_root = "/var/storage"
+        storage_root = "/var/storage/"
         file_path = "/var/storage/docs/file.txt"
         assert _is_path_within_storage(file_path, storage_root) is True
 
@@ -100,8 +98,8 @@ class TestIsPathWithinStorage:
 class TestStorageServicePathValidation:
     """Unit tests for StorageService path validation logic."""
 
-    def test_path_validation_blocks_path_traversal_in_upload(self):
-        """Test that upload logic blocks path traversal attempts."""
+    def test_filename_sanitization_prevents_traversal_in_upload(self):
+        """Test that filename sanitization prevents path traversal in upload."""
         with tempfile.TemporaryDirectory() as tmpdir:
             storage_path = os.path.join(tmpdir, "storage")
             os.makedirs(storage_path)
