@@ -10,7 +10,7 @@ import {
 } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
 import { studiesApi, actionsApi } from '../../api/client'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 
 const Dashboard: React.FC = () => {
   const { data: studiesData } = useQuery({
