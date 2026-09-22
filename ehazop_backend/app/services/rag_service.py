@@ -1,12 +1,18 @@
 """RAG (Retrieval-Augmented Generation) knowledge base service."""
 
+import logging
+import os
 from typing import Any
 
+import aiofiles
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.knowledge import KnowledgeChunk, Citation, EmbeddingIndex
 from app.models.document import Document
+from app.services.storage_service import _storage_boundary
+
+logger = logging.getLogger(__name__)
 
 
 class RAGService:
@@ -61,8 +67,16 @@ class RAGService:
         # For local storage, read file content
         if document.storage_backend == "local":
             try:
-                with open(document.file_path, "r", encoding="utf-8") as f:
-                    return f.read()
+                resolved_path = os.path.realpath(document.file_path)
+                if not resolved_path.startswith(_storage_boundary()):
+                    logger.warning(
+                        "ingest: refusing to read document %s outside the storage "
+                        "root; no content will be ingested",
+                        document.id,
+                    )
+                    return ""
+                async with aiofiles.open(resolved_path, "r", encoding="utf-8") as f:
+                    return await f.read()
             except Exception:
                 return ""
         # Add other storage backends as needed

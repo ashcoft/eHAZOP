@@ -1,211 +1,398 @@
-"""Tests for storage service path traversal protection."""
+"""Tests for storage service path traversal protection.
+
+These tests exercise the real upload/download/delete code paths (including the
+filesystem guards) against a temporary storage root. A minimal in-memory session
+double stands in for the database, since path containment is independent of the
+database and the SQLite schema used elsewhere in the suite cannot be created
+(the models rely on Postgres-specific relationships).
+"""
 
 import os
 import tempfile
+from pathlib import Path
+from types import SimpleNamespace
 
-from app.services.storage_service import _is_path_within_storage
+import pytest
 
-
-class TestIsPathWithinStorage:
-    """Test the path containment helper function."""
-
-    def test_path_within_storage_returns_true(self):
-        """Test that a path within storage root returns True."""
-        storage_root = "/var/storage"
-        file_path = "/var/storage/docs/file.txt"
-        assert _is_path_within_storage(file_path, storage_root) is True
-
-    def test_path_outside_storage_returns_false(self):
-        """Test that a path outside storage root returns False."""
-        storage_root = "/var/storage"
-        file_path = "/var/other/file.txt"
-        assert _is_path_within_storage(file_path, storage_root) is False
-
-    def test_path_traversal_attempt_with_normalized_path_returns_false(self):
-        """Test that path traversal attempts are blocked when paths are pre-normalized."""
-        storage_root = "/var/storage"
-        # Pre-normalized path that would escape storage
-        malicious_path = os.path.normpath(os.path.realpath("/var/storage/../../../etc/passwd"))
-        # After normalization this resolves to /etc/passwd
-        assert malicious_path == "/etc/passwd"
-        assert _is_path_within_storage(malicious_path, storage_root) is False
-
-    def test_symlink_inside_storage_returns_true(self):
-        """Test that a symlink resolving inside storage is allowed."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            storage_root = os.path.join(tmpdir, "storage")
-            os.makedirs(storage_root)
-            
-            # Create a file inside storage
-            file_inside = os.path.join(storage_root, "file.txt")
-            with open(file_inside, "w") as f:
-                f.write("content")
-            
-            # Create a symlink to it
-            symlink_path = os.path.join(tmpdir, "link.txt")
-            os.symlink(file_inside, symlink_path)
-            
-            # The symlink resolves inside storage
-            resolved = os.path.realpath(symlink_path)
-            assert _is_path_within_storage(resolved, storage_root) is True
-
-    def test_symlink_outside_storage_returns_false(self):
-        """Test that a symlink resolving outside storage is blocked."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            storage_root = os.path.join(tmpdir, "storage")
-            os.makedirs(storage_root)
-            
-            # Create a file outside storage
-            file_outside = os.path.join(tmpdir, "secret.txt")
-            with open(file_outside, "w") as f:
-                f.write("secret")
-            
-            # Create a symlink inside storage pointing outside
-            symlink_path = os.path.join(storage_root, "link.txt")
-            os.symlink(file_outside, symlink_path)
-            
-            # The symlink resolves outside storage
-            resolved = os.path.realpath(symlink_path)
-            assert _is_path_within_storage(resolved, storage_root) is False
-
-    def test_empty_path_returns_false(self):
-        """Test that empty paths are handled safely."""
-        storage_root = "/var/storage"
-        file_path = ""
-        assert _is_path_within_storage(file_path, storage_root) is False
-
-    def test_relative_path_returns_false(self):
-        """Test that relative paths are handled safely."""
-        storage_root = "/var/storage"
-        file_path = "docs/../../etc/passwd"
-        assert _is_path_within_storage(file_path, storage_root) is False
-
-    def test_value_error_handled_gracefully(self):
-        """Test that ValueError from commonpath is handled (Windows cross-drive)."""
-        # On Windows, paths on different drives raise ValueError
-        # We should treat these as unsafe (return False)
-        storage_root = "C:\\storage"
-        file_path = "D:\\other"
-        assert _is_path_within_storage(file_path, storage_root) is False
-
-    def test_path_within_storage_trailing_slash(self):
-        """Test path validation with trailing slash in storage root."""
-        storage_root = "/var/storage/"
-        file_path = "/var/storage/docs/file.txt"
-        assert _is_path_within_storage(file_path, storage_root) is True
+from app.services.rag_service import RAGService
+from app.services.storage_service import (
+    StorageService,
+    _storage_boundary,
+    _storage_root,
+)
 
 
-class TestStorageServicePathValidation:
-    """Unit tests for StorageService path validation logic."""
+class _StubResult:
+    """Result object exposing the single-document accessor the service calls."""
 
-    def test_filename_sanitization_prevents_traversal_in_upload(self):
-        """Test that filename sanitization prevents path traversal in upload."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            storage_path = os.path.join(tmpdir, "storage")
-            os.makedirs(storage_path)
-            
-            # Simulate what happens in _upload_local
-            settings_storage_path = storage_path
-            malicious_filename = "../../../etc/passwd"
-            
-            # Simulate filename sanitization (os.path.basename) - this removes path traversal
-            safe_filename = os.path.basename(malicious_filename)  # "passwd"
-            assert safe_filename == "passwd"
-            
-            # After basename sanitization, the filename is safe and path is valid
-            # This is correct behavior - the sanitization prevents path traversal
-            base_storage_root = os.path.normpath(os.path.realpath(settings_storage_path))
-            file_path = os.path.normpath(
-                os.path.realpath(
-                    os.path.join(base_storage_root, "2026/01/01", f"uuid_{safe_filename}")
-                )
+    def __init__(self, document):
+        """Store the document the service will look up."""
+        self._document = document
+
+    def scalar_one_or_none(self):
+        """Return the configured document."""
+        return self._document
+
+
+class _StubSession:
+    """Minimal async session double: the storage service only needs CRUD calls."""
+
+    def __init__(self, document=None):
+        """Track the lookup document plus added and deleted records."""
+        self._document = document
+        self.added = []
+        self.deleted = []
+
+    def add(self, obj):
+        """Record an added object."""
+        self.added.append(obj)
+
+    async def flush(self):
+        """No-op flush."""
+
+    async def refresh(self, obj):
+        """No-op refresh."""
+
+    async def execute(self, *args, **kwargs):
+        """Return the prepared lookup result."""
+        return _StubResult(self._document)
+
+    async def delete(self, obj):
+        """Record a deleted object."""
+        self.deleted.append(obj)
+
+
+@pytest.fixture
+def storage_root(monkeypatch):
+    """Point the service at a fresh temporary storage root.
+
+    The root is a child of the managed temporary directory so that escape
+    targets created next to it (siblings, parent-directory files) are cleaned
+    up with it rather than persisting in the system temp directory.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = os.path.join(tmpdir, "storage")
+        os.makedirs(root)
+        monkeypatch.setattr(
+            "app.services.storage_service.settings.STORAGE_LOCAL_PATH", root
+        )
+        yield os.path.realpath(root)
+
+
+class _RecordedDocument:
+    """Replacement for the ORM Document built during upload."""
+
+    def __init__(self, **kwargs):
+        """Record the constructor kwargs and assign a stable id."""
+        self.__dict__.update(kwargs)
+        self.id = "doc-1"
+
+
+@pytest.fixture
+def document_model_stub(monkeypatch):
+    """Swap the ORM Document for a recording stub, for upload tests only.
+
+    Instantiating the real ORM model currently fails during mapper configuration
+    because of a pre-existing relationship definition unrelated to path handling
+    (User.audit_logs has no matching foreign key). Only the ORM object is stubbed;
+    the path guards under test are exercised for real.
+    """
+    monkeypatch.setattr("app.services.storage_service.Document", _RecordedDocument)
+
+
+def _document(file_path):
+    """Stand-in for a Document row; only the attributes the service reads.
+
+    The real ORM model is avoided because mapper configuration currently fails on
+    an unrelated pre-existing relationship definition, and path containment does
+    not depend on it.
+    """
+    return SimpleNamespace(
+        id="doc-1",
+        storage_backend="local",
+        file_path=file_path,
+    )
+
+
+class TestStorageRoot:
+    def test_storage_root_is_resolved(self, storage_root):
+        """The root is fully resolved (symlinks, trailing separators)."""
+        assert _storage_root() == storage_root
+
+    def test_boundary_rejects_sibling_prefix(self, storage_root):
+        """A sibling directory sharing the root's name prefix is not inside it."""
+        assert _storage_boundary() == storage_root + os.sep
+        assert not f"{storage_root}-evil/file.txt".startswith(_storage_boundary())
+
+    def test_boundary_handles_filesystem_root(self, monkeypatch):
+        """At '/' the boundary must not collapse to '//'."""
+        monkeypatch.setattr(
+            "app.services.storage_service.settings.STORAGE_LOCAL_PATH", os.sep
+        )
+        assert _storage_boundary() == os.sep
+        assert "/etc/passwd".startswith(_storage_boundary())
+
+
+class TestUploadPathTraversal:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "malicious_name",
+        [
+            "../../../etc/passwd",
+            "/etc/passwd",
+            "foo/../bar/../../etc/passwd",
+            "..",
+            ".",
+            "",
+            "../\x00evil",
+        ],
+    )
+    async def test_traversal_filenames_are_written_inside_root(
+        self, storage_root, document_model_stub, malicious_name
+    ):
+        """Traversal filenames land inside the storage root."""
+        session = _StubSession()
+        service = StorageService(session)
+
+        result = await service.upload_file(
+            content=b"payload",
+            filename=malicious_name,
+            file_type="text/plain",
+            uploaded_by_id="11111111-1111-1111-1111-111111111111",
+        )
+
+        written = result["file_path"]
+        assert written.startswith(storage_root + os.sep)
+        assert os.path.isfile(written)
+        assert Path(written).read_bytes() == b"payload"
+
+    @pytest.mark.asyncio
+    async def test_normal_filename_is_preserved(
+        self, storage_root, document_model_stub
+    ):
+        """A normal filename keeps its name and lands in the root."""
+        session = _StubSession()
+        service = StorageService(session)
+
+        result = await service.upload_file(
+            content=b"report",
+            filename="quarterly-report.pdf",
+            file_type="application/pdf",
+            uploaded_by_id="11111111-1111-1111-1111-111111111111",
+        )
+
+        assert result["file_path"].endswith("_quarterly-report.pdf")
+        assert result["file_path"].startswith(storage_root + os.sep)
+
+    @pytest.mark.asyncio
+    async def test_upload_rejects_file_path_escaping_root(
+        self, storage_root, document_model_stub, monkeypatch
+    ):
+        """Pin the file-path guard itself, not just the filename sanitizer.
+
+        Filenames reaching the guard are already sanitized, so the guard is
+        unreachable through the public API. Simulate a broken upstream invariant
+        by returning a traversal fragment from uuid4; the guard must reject it.
+        """
+        monkeypatch.setattr(
+            "app.services.storage_service.uuid.uuid4", lambda: "../../../../evil"
+        )
+        service = StorageService(_StubSession())
+
+        with pytest.raises(ValueError, match="Invalid file path"):
+            await service.upload_file(
+                content=b"payload",
+                filename="ok.pdf",
+                file_type="application/pdf",
+                uploaded_by_id="11111111-1111-1111-1111-111111111111",
             )
-            
-            # The sanitized filename results in a valid path (sanitization worked)
-            is_blocked = not _is_path_within_storage(file_path, base_storage_root)
-            assert is_blocked is False, f"Path was incorrectly blocked: {file_path}"
 
-    def test_filename_sanitization_removes_path_traversal(self):
-        """Test that filename sanitization removes path traversal characters."""
-        import re
-        
-        # Simulate the sanitization from _upload_local
-        def sanitize_filename(filename):
-            safe_filename = os.path.basename(filename)
-            safe_filename = re.sub(r"[^A-Za-z0-9._-]", "_", safe_filename)
-            return safe_filename
-        
-        # Path traversal attempts get sanitized to just the filename
-        assert sanitize_filename("../../../etc/passwd") == "passwd"
-        assert sanitize_filename("/etc/passwd") == "passwd"
-        assert sanitize_filename("foo/../bar/../../etc/passwd") == "passwd"
-        
-        # Normal filenames are preserved
-        assert sanitize_filename("document.pdf") == "document.pdf"
-        assert sanitize_filename("my_report-2024.docx") == "my_report-2024.docx"
+    @pytest.mark.asyncio
+    async def test_upload_rejects_storage_path_escaping_root(
+        self, storage_root, document_model_stub, monkeypatch
+    ):
+        """Pin the directory guard with a date component that escapes the root."""
 
-    def test_path_validation_allows_valid_path_in_upload(self):
-        """Test that upload logic allows valid file paths."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            storage_path = os.path.join(tmpdir, "storage")
-            os.makedirs(storage_path)
-            
-            # Simulate what happens in _upload_local
-            settings_storage_path = storage_path
-            valid_filename = "document.pdf"
-            
-            # Build the path as the service would
-            base_storage_root = os.path.normpath(os.path.realpath(settings_storage_path))
-            file_path = os.path.normpath(
-                os.path.realpath(
-                    os.path.join(base_storage_root, "2026/01/01", f"uuid_{valid_filename}")
-                )
+        class _EscapingDate:
+            @staticmethod
+            def strftime(_fmt):
+                """Return a traversal fragment in place of a date component."""
+                return "../../.."
+
+        class _EscapingDateTime:
+            @staticmethod
+            def now(_tz):
+                """Return the escaping date double."""
+                return _EscapingDate()
+
+        monkeypatch.setattr(
+            "app.services.storage_service.datetime", _EscapingDateTime
+        )
+        service = StorageService(_StubSession())
+
+        with pytest.raises(ValueError, match="Invalid storage path"):
+            await service.upload_file(
+                content=b"payload",
+                filename="ok.pdf",
+                file_type="application/pdf",
+                uploaded_by_id="11111111-1111-1111-1111-111111111111",
             )
-            
-            # This should be allowed
-            is_blocked = not _is_path_within_storage(file_path, base_storage_root)
-            assert is_blocked is False, f"Valid path was incorrectly blocked: {file_path}"
 
-    def test_download_validates_stored_path(self):
-        """Test that download validates stored file paths."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            storage_path = os.path.join(tmpdir, "storage")
-            os.makedirs(storage_path)
-            
-            # Create a file inside storage
-            inside_path = os.path.join(storage_path, "test.txt")
-            with open(inside_path, "w") as f:
-                f.write("content")
-            
-            # Simulate stored path (as in Document.file_path)
-            stored_path = inside_path
-            
-            # Validate as download_file would
-            base_storage_root = os.path.normpath(os.path.realpath(storage_path))
-            resolved_path = os.path.normpath(os.path.realpath(stored_path))
-            
-            # This should be allowed
-            is_blocked = not _is_path_within_storage(resolved_path, base_storage_root)
-            assert is_blocked is False, f"Valid path was incorrectly blocked: {resolved_path}"
 
-    def test_download_blocks_malicious_stored_path(self):
-        """Test that download blocks malicious stored file paths."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            storage_path = os.path.join(tmpdir, "storage")
-            os.makedirs(storage_path)
-            
-            # Create a file outside storage
-            malicious_path = os.path.join(tmpdir, "secret.txt")
-            with open(malicious_path, "w") as f:
-                f.write("secret")
-            
-            # Simulate stored path that tries to escape
-            stored_path = malicious_path
-            
-            # Validate as download_file would
-            base_storage_root = os.path.normpath(os.path.realpath(storage_path))
-            resolved_path = os.path.normpath(os.path.realpath(stored_path))
-            
-            # This should be blocked
-            is_blocked = not _is_path_within_storage(resolved_path, base_storage_root)
-            assert is_blocked is True, f"Malicious path was not blocked: {resolved_path}"
+class TestDownloadPathTraversal:
+    @pytest.mark.asyncio
+    async def test_download_rejects_file_outside_root(self, storage_root):
+        """A file outside the root is not served."""
+        with tempfile.NamedTemporaryFile(delete=False) as secret:
+            secret.write(b"top secret")
+            secret_path = secret.name
+        try:
+            document = _document(secret_path)
+            service = StorageService(_StubSession(document))
+
+            assert await service.download_file(document.id) is None
+        finally:
+            os.remove(secret_path)
+
+    @pytest.mark.asyncio
+    async def test_download_allows_file_inside_root(self, storage_root):
+        """A file inside the root is served."""
+        inside_path = os.path.join(storage_root, "docs", "report.txt")
+        os.makedirs(os.path.dirname(inside_path))
+        Path(inside_path).write_bytes(b"report body")
+
+        document = _document(inside_path)
+        service = StorageService(_StubSession(document))
+
+        assert await service.download_file(document.id) == b"report body"
+
+    @pytest.mark.asyncio
+    async def test_download_rejects_sibling_prefix_path(self, storage_root):
+        """A '<root>-evil' sibling must not pass a bare startswith(root) check."""
+        sibling_dir = storage_root + "-evil"
+        os.makedirs(sibling_dir, exist_ok=True)
+        sibling_file = os.path.join(sibling_dir, "loot.txt")
+        Path(sibling_file).write_bytes(b"loot")
+
+        document = _document(sibling_file)
+        service = StorageService(_StubSession(document))
+
+        assert await service.download_file(document.id) is None
+
+    @pytest.mark.asyncio
+    async def test_download_rejects_symlink_escape(self, storage_root):
+        """A symlink inside the root that points outside is rejected."""
+        with tempfile.TemporaryDirectory() as outside_dir:
+            secret = os.path.join(outside_dir, "secret.txt")
+            Path(secret).write_bytes(b"secret")
+            link = os.path.join(storage_root, "escape")
+            os.symlink(outside_dir, link)
+
+            document = _document(os.path.join(link, "secret.txt"))
+            service = StorageService(_StubSession(document))
+
+            assert await service.download_file(document.id) is None
+
+    @pytest.mark.asyncio
+    async def test_download_rejects_traversal_path(self, storage_root):
+        """A stored path using '..' is rejected."""
+        outside = os.path.join(os.path.dirname(storage_root), "outside.txt")
+        Path(outside).write_bytes(b"outside")
+
+        document = _document(f"{storage_root}/../outside.txt")
+        service = StorageService(_StubSession(document))
+
+        assert await service.download_file(document.id) is None
+
+
+class TestDeletePathTraversal:
+    @pytest.mark.asyncio
+    async def test_delete_refuses_to_unlink_outside_root(self, storage_root):
+        """A file outside the root is not unlinked."""
+        with tempfile.NamedTemporaryFile(delete=False) as secret:
+            secret.write(b"keep me")
+            secret_path = secret.name
+
+        document = _document(secret_path)
+        session = _StubSession(document)
+        service = StorageService(session)
+
+        assert await service.delete_file(document.id) is True
+        assert os.path.exists(secret_path)
+        assert document in session.deleted
+
+        os.remove(secret_path)
+
+    @pytest.mark.asyncio
+    async def test_delete_refuses_sibling_prefix_path(self, storage_root):
+        """A '<root>-evil' sibling must not be unlinked."""
+        sibling_dir = storage_root + "-evil"
+        os.makedirs(sibling_dir, exist_ok=True)
+        sibling_file = os.path.join(sibling_dir, "keep.txt")
+        Path(sibling_file).write_bytes(b"keep")
+
+        document = _document(sibling_file)
+        session = _StubSession(document)
+        service = StorageService(session)
+
+        assert await service.delete_file(document.id) is True
+        assert os.path.exists(sibling_file)
+
+    @pytest.mark.asyncio
+    async def test_delete_removes_file_inside_root(self, storage_root):
+        """A file inside the root is unlinked."""
+        inside_path = os.path.join(storage_root, "gone.txt")
+        Path(inside_path).write_bytes(b"bye")
+
+        document = _document(inside_path)
+        session = _StubSession(document)
+        service = StorageService(session)
+
+        assert await service.delete_file(document.id) is True
+        assert not os.path.exists(inside_path)
+
+
+class TestRagDocumentRead:
+    """The RAG read sink previously had no containment check at all."""
+
+    @pytest.mark.asyncio
+    async def test_reads_document_inside_root(self, storage_root):
+        """An in-root document is read."""
+        inside_path = os.path.join(storage_root, "notes.txt")
+        Path(inside_path).write_text("ingest me", encoding="utf-8")
+
+        service = RAGService(_StubSession())
+        assert await service._read_document_content(_document(inside_path)) == "ingest me"
+
+    @pytest.mark.asyncio
+    async def test_refuses_document_outside_root(self, storage_root):
+        """An out-of-root document returns no content."""
+        outside = os.path.join(os.path.dirname(storage_root), "secret.txt")
+        Path(outside).write_text("top secret", encoding="utf-8")
+
+        service = RAGService(_StubSession())
+        assert await service._read_document_content(_document(outside)) == ""
+
+    @pytest.mark.asyncio
+    async def test_refuses_symlink_escape(self, storage_root):
+        """A symlink pointing outside the root returns no content."""
+        with tempfile.TemporaryDirectory() as outside_dir:
+            Path(os.path.join(outside_dir, "secret.txt")).write_text(
+                "secret", encoding="utf-8"
+            )
+            link = os.path.join(storage_root, "escape")
+            os.symlink(outside_dir, link)
+
+            service = RAGService(_StubSession())
+            target = os.path.join(link, "secret.txt")
+            assert await service._read_document_content(_document(target)) == ""
+
+    @pytest.mark.asyncio
+    async def test_refuses_traversal_document(self, storage_root):
+        """A traversal document path returns no content."""
+        outside = os.path.join(os.path.dirname(storage_root), "traversal.txt")
+        Path(outside).write_text("nope", encoding="utf-8")
+
+        service = RAGService(_StubSession())
+        traversal = f"{storage_root}/../traversal.txt"
+        assert await service._read_document_content(_document(traversal)) == ""
