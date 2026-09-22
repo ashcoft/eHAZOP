@@ -1,12 +1,16 @@
 """RAG (Retrieval-Augmented Generation) knowledge base service."""
 
+import os
 from typing import Any
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.models.knowledge import KnowledgeChunk, Citation, EmbeddingIndex
 from app.models.document import Document
+
+settings = get_settings()
 
 
 class RAGService:
@@ -61,7 +65,11 @@ class RAGService:
         # For local storage, read file content
         if document.storage_backend == "local":
             try:
-                with open(document.file_path, "r", encoding="utf-8") as f:
+                base_storage_root = os.path.realpath(settings.STORAGE_LOCAL_PATH)
+                resolved_path = os.path.realpath(document.file_path)
+                if not resolved_path.startswith(base_storage_root + os.sep):
+                    return ""
+                with open(resolved_path, "r", encoding="utf-8") as f:
                     return f.read()
             except Exception:
                 return ""

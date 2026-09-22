@@ -18,16 +18,9 @@ settings = get_settings()
 logger = logging.getLogger(__name__)
 
 
-def _is_path_within_storage(file_path: str, storage_root: str) -> bool:
-    """Check if file_path is within storage_root, handling ValueError from commonpath."""
-    try:
-        # Normalize paths to handle trailing slashes consistently
-        normalized_storage = os.path.normpath(storage_root)
-        return os.path.commonpath([normalized_storage, file_path]) == normalized_storage
-    except ValueError:
-        # os.path.commonpath raises ValueError when paths are on different drives (Windows)
-        # or when paths are relative/empty. Treat as unsafe in these cases.
-        return False
+def _storage_root() -> str:
+    """Return the normalized, symlink-resolved local storage root."""
+    return os.path.realpath(settings.STORAGE_LOCAL_PATH)
 
 
 class StorageService:
@@ -88,14 +81,16 @@ class StorageService:
         ):
             safe_filename = f"file_{file_id}"
 
-        base_storage_root = os.path.normpath(os.path.realpath(settings.STORAGE_LOCAL_PATH))
-        storage_path = os.path.normpath(os.path.realpath(os.path.join(base_storage_root, date_str)))
-        if not _is_path_within_storage(storage_path, base_storage_root):
+        base_storage_root = _storage_root()
+        storage_path = os.path.realpath(os.path.join(base_storage_root, date_str))
+        if not storage_path.startswith(base_storage_root + os.sep):
             raise ValueError("Invalid storage path")
         os.makedirs(storage_path, exist_ok=True)
 
-        file_path = os.path.normpath(os.path.realpath(os.path.join(storage_path, f"{file_id}_{safe_filename}")))
-        if not _is_path_within_storage(file_path, base_storage_root):
+        file_path = os.path.realpath(
+            os.path.join(storage_path, f"{file_id}_{safe_filename}")
+        )
+        if not file_path.startswith(base_storage_root + os.sep):
             raise ValueError("Invalid file path")
 
         async with aiofiles.open(file_path, "wb") as f:
@@ -181,9 +176,9 @@ class StorageService:
 
         if document.storage_backend == "local":
             try:
-                base_storage_root = os.path.normpath(os.path.realpath(settings.STORAGE_LOCAL_PATH))
-                resolved_path = os.path.normpath(os.path.realpath(document.file_path))
-                if not _is_path_within_storage(resolved_path, base_storage_root):
+                base_storage_root = _storage_root()
+                resolved_path = os.path.realpath(document.file_path)
+                if not resolved_path.startswith(base_storage_root + os.sep):
                     logger.warning(
                         "download_file: path containment check failed for document %s. "
                         "File path '%s' is outside configured storage root",
@@ -235,9 +230,9 @@ class StorageService:
 
         if document.storage_backend == "local":
             try:
-                base_storage_root = os.path.normpath(os.path.realpath(settings.STORAGE_LOCAL_PATH))
-                resolved_path = os.path.normpath(os.path.realpath(document.file_path))
-                if _is_path_within_storage(resolved_path, base_storage_root):
+                base_storage_root = _storage_root()
+                resolved_path = os.path.realpath(document.file_path)
+                if resolved_path.startswith(base_storage_root + os.sep):
                     if os.path.exists(resolved_path):
                         os.remove(resolved_path)
                 else:
