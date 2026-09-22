@@ -352,6 +352,22 @@ class TestRagDocumentRead:
         assert await service._read_document_content(_document(outside)) == ""
 
     @pytest.mark.asyncio
+    async def test_refuses_symlink_escape(self, storage_root, monkeypatch):
+        monkeypatch.setattr(
+            "app.services.rag_service.settings.STORAGE_LOCAL_PATH", storage_root
+        )
+        with tempfile.TemporaryDirectory() as outside_dir:
+            Path(os.path.join(outside_dir, "secret.txt")).write_text(
+                "secret", encoding="utf-8"
+            )
+            link = os.path.join(storage_root, "escape")
+            os.symlink(outside_dir, link)
+
+            service = RAGService(_StubSession())
+            target = os.path.join(link, "secret.txt")
+            assert await service._read_document_content(_document(target)) == ""
+
+    @pytest.mark.asyncio
     async def test_refuses_traversal_document(self, storage_root, monkeypatch):
         monkeypatch.setattr(
             "app.services.rag_service.settings.STORAGE_LOCAL_PATH", storage_root
