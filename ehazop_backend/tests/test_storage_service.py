@@ -23,10 +23,14 @@ from app.services.storage_service import (
 
 
 class _StubResult:
+    """Result object exposing the single-document accessor the service calls."""
+
     def __init__(self, document):
+        """Store the document the service will look up."""
         self._document = document
 
     def scalar_one_or_none(self):
+        """Return the configured document."""
         return self._document
 
 
@@ -34,23 +38,27 @@ class _StubSession:
     """Minimal async session double: the storage service only needs CRUD calls."""
 
     def __init__(self, document=None):
+        """Track the lookup document plus added and deleted records."""
         self._document = document
         self.added = []
         self.deleted = []
 
     def add(self, obj):
+        """Record an added object."""
         self.added.append(obj)
 
     async def flush(self):
-        pass
+        """No-op flush."""
 
     async def refresh(self, obj):
-        pass
+        """No-op refresh."""
 
     async def execute(self, *args, **kwargs):
+        """Return the prepared lookup result."""
         return _StubResult(self._document)
 
     async def delete(self, obj):
+        """Record a deleted object."""
         self.deleted.append(obj)
 
 
@@ -75,6 +83,7 @@ class _RecordedDocument:
     """Replacement for the ORM Document built during upload."""
 
     def __init__(self, **kwargs):
+        """Record the constructor kwargs and assign a stable id."""
         self.__dict__.update(kwargs)
         self.id = "doc-1"
 
@@ -107,6 +116,7 @@ def _document(file_path):
 
 class TestStorageRoot:
     def test_storage_root_is_resolved(self, storage_root):
+        """The root is fully resolved (symlinks, trailing separators)."""
         assert _storage_root() == storage_root
 
     def test_boundary_rejects_sibling_prefix(self, storage_root):
@@ -140,6 +150,7 @@ class TestUploadPathTraversal:
     async def test_traversal_filenames_are_written_inside_root(
         self, storage_root, document_model_stub, malicious_name
     ):
+        """Traversal filenames land inside the storage root."""
         session = _StubSession()
         service = StorageService(session)
 
@@ -159,6 +170,7 @@ class TestUploadPathTraversal:
     async def test_normal_filename_is_preserved(
         self, storage_root, document_model_stub
     ):
+        """A normal filename keeps its name and lands in the root."""
         session = _StubSession()
         service = StorageService(session)
 
@@ -204,11 +216,13 @@ class TestUploadPathTraversal:
         class _EscapingDate:
             @staticmethod
             def strftime(_fmt):
+                """Return a traversal fragment in place of a date component."""
                 return "../../.."
 
         class _EscapingDateTime:
             @staticmethod
             def now(_tz):
+                """Return the escaping date double."""
                 return _EscapingDate()
 
         monkeypatch.setattr(
@@ -228,6 +242,7 @@ class TestUploadPathTraversal:
 class TestDownloadPathTraversal:
     @pytest.mark.asyncio
     async def test_download_rejects_file_outside_root(self, storage_root):
+        """A file outside the root is not served."""
         with tempfile.NamedTemporaryFile(delete=False) as secret:
             secret.write(b"top secret")
             secret_path = secret.name
@@ -241,6 +256,7 @@ class TestDownloadPathTraversal:
 
     @pytest.mark.asyncio
     async def test_download_allows_file_inside_root(self, storage_root):
+        """A file inside the root is served."""
         inside_path = os.path.join(storage_root, "docs", "report.txt")
         os.makedirs(os.path.dirname(inside_path))
         Path(inside_path).write_bytes(b"report body")
@@ -279,6 +295,7 @@ class TestDownloadPathTraversal:
 
     @pytest.mark.asyncio
     async def test_download_rejects_traversal_path(self, storage_root):
+        """A stored path using '..' is rejected."""
         outside = os.path.join(os.path.dirname(storage_root), "outside.txt")
         Path(outside).write_bytes(b"outside")
 
@@ -291,6 +308,7 @@ class TestDownloadPathTraversal:
 class TestDeletePathTraversal:
     @pytest.mark.asyncio
     async def test_delete_refuses_to_unlink_outside_root(self, storage_root):
+        """A file outside the root is not unlinked."""
         with tempfile.NamedTemporaryFile(delete=False) as secret:
             secret.write(b"keep me")
             secret_path = secret.name
@@ -322,6 +340,7 @@ class TestDeletePathTraversal:
 
     @pytest.mark.asyncio
     async def test_delete_removes_file_inside_root(self, storage_root):
+        """A file inside the root is unlinked."""
         inside_path = os.path.join(storage_root, "gone.txt")
         Path(inside_path).write_bytes(b"bye")
 
@@ -338,6 +357,7 @@ class TestRagDocumentRead:
 
     @pytest.mark.asyncio
     async def test_reads_document_inside_root(self, storage_root):
+        """An in-root document is read."""
         inside_path = os.path.join(storage_root, "notes.txt")
         Path(inside_path).write_text("ingest me", encoding="utf-8")
 
@@ -346,6 +366,7 @@ class TestRagDocumentRead:
 
     @pytest.mark.asyncio
     async def test_refuses_document_outside_root(self, storage_root):
+        """An out-of-root document returns no content."""
         outside = os.path.join(os.path.dirname(storage_root), "secret.txt")
         Path(outside).write_text("top secret", encoding="utf-8")
 
@@ -354,6 +375,7 @@ class TestRagDocumentRead:
 
     @pytest.mark.asyncio
     async def test_refuses_symlink_escape(self, storage_root):
+        """A symlink pointing outside the root returns no content."""
         with tempfile.TemporaryDirectory() as outside_dir:
             Path(os.path.join(outside_dir, "secret.txt")).write_text(
                 "secret", encoding="utf-8"
@@ -367,6 +389,7 @@ class TestRagDocumentRead:
 
     @pytest.mark.asyncio
     async def test_refuses_traversal_document(self, storage_root):
+        """A traversal document path returns no content."""
         outside = os.path.join(os.path.dirname(storage_root), "traversal.txt")
         Path(outside).write_text("nope", encoding="utf-8")
 
