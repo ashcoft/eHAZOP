@@ -8,11 +8,10 @@ import aiofiles
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
 from app.models.knowledge import KnowledgeChunk, Citation, EmbeddingIndex
 from app.models.document import Document
+from app.services.storage_service import _storage_boundary
 
-settings = get_settings()
 logger = logging.getLogger(__name__)
 
 
@@ -68,10 +67,8 @@ class RAGService:
         # For local storage, read file content
         if document.storage_backend == "local":
             try:
-                base_storage_root = os.path.realpath(settings.STORAGE_LOCAL_PATH)
                 resolved_path = os.path.realpath(document.file_path)
-                boundary = base_storage_root.rstrip(os.sep) + os.sep
-                if not resolved_path.startswith(boundary):
+                if not resolved_path.startswith(_storage_boundary()):
                     logger.warning(
                         "ingest: refusing to read document %s outside the storage "
                         "root; no content will be ingested",
