@@ -3,6 +3,7 @@
 import os
 from typing import Any
 
+import aiofiles
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -69,8 +70,8 @@ class RAGService:
                 resolved_path = os.path.realpath(document.file_path)
                 if not resolved_path.startswith(base_storage_root + os.sep):
                     return ""
-                with open(resolved_path, "r", encoding="utf-8") as f:
-                    return f.read()
+                async with aiofiles.open(resolved_path, "r", encoding="utf-8") as f:
+                    return await f.read()
             except Exception:
                 return ""
         # Add other storage backends as needed
