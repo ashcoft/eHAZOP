@@ -1,5 +1,6 @@
 """RAG (Retrieval-Augmented Generation) knowledge base service."""
 
+import logging
 import os
 from typing import Any
 
@@ -12,6 +13,7 @@ from app.models.knowledge import KnowledgeChunk, Citation, EmbeddingIndex
 from app.models.document import Document
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 class RAGService:
@@ -69,6 +71,11 @@ class RAGService:
                 base_storage_root = os.path.realpath(settings.STORAGE_LOCAL_PATH)
                 resolved_path = os.path.realpath(document.file_path)
                 if not resolved_path.startswith(base_storage_root + os.sep):
+                    logger.warning(
+                        "ingest: refusing to read document %s outside the storage "
+                        "root; no content will be ingested",
+                        document.id,
+                    )
                     return ""
                 async with aiofiles.open(resolved_path, "r", encoding="utf-8") as f:
                     return await f.read()

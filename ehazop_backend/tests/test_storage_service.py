@@ -14,6 +14,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.services.rag_service import RAGService
 from app.services.storage_service import StorageService, _storage_root
 
 
@@ -147,6 +148,58 @@ class TestUploadPathTraversal:
         assert result["file_path"].endswith("_quarterly-report.pdf")
         assert result["file_path"].startswith(storage_root + os.sep)
 
+    @pytest.mark.asyncio
+    async def test_upload_rejects_file_path_escaping_root(
+        self, storage_root, document_model_stub, monkeypatch
+    ):
+        """Pin the file-path guard itself, not just the filename sanitizer.
+
+        Filenames reaching the guard are already sanitized, so the guard is
+        unreachable through the public API. Simulate a broken upstream invariant
+        by returning a traversal fragment from uuid4; the guard must reject it.
+        """
+        monkeypatch.setattr(
+            "app.services.storage_service.uuid.uuid4", lambda: "../../../../evil"
+        )
+        service = StorageService(_StubSession())
+
+        with pytest.raises(ValueError, match="Invalid file path"):
+            await service.upload_file(
+                content=b"payload",
+                filename="ok.pdf",
+                file_type="application/pdf",
+                uploaded_by_id="11111111-1111-1111-1111-111111111111",
+            )
+
+    @pytest.mark.asyncio
+    async def test_upload_rejects_storage_path_escaping_root(
+        self, storage_root, document_model_stub, monkeypatch
+    ):
+        """Pin the directory guard with a date component that escapes the root."""
+
+        class _EscapingDate:
+            @staticmethod
+            def strftime(_fmt):
+                return "../../.."
+
+        class _EscapingDateTime:
+            @staticmethod
+            def now(_tz):
+                return _EscapingDate()
+
+        monkeypatch.setattr(
+            "app.services.storage_service.datetime", _EscapingDateTime
+        )
+        service = StorageService(_StubSession())
+
+        with pytest.raises(ValueError, match="Invalid storage path"):
+            await service.upload_file(
+                content=b"payload",
+                filename="ok.pdf",
+                file_type="application/pdf",
+                uploaded_by_id="11111111-1111-1111-1111-111111111111",
+            )
+
 
 class TestDownloadPathTraversal:
     @pytest.mark.asyncio
@@ -212,3 +265,41 @@ class TestDeletePathTraversal:
 
         assert await service.delete_file(document.id) is True
         assert not os.path.exists(inside_path)
+
+
+class TestRagDocumentRead:
+    """The RAG read sink previously had no containment check at all."""
+
+    @pytest.mark.asyncio
+    async def test_reads_document_inside_root(self, storage_root, monkeypatch):
+        monkeypatch.setattr(
+            "app.services.rag_service.settings.STORAGE_LOCAL_PATH", storage_root
+        )
+        inside_path = os.path.join(storage_root, "notes.txt")
+        Path(inside_path).write_text("ingest me", encoding="utf-8")
+
+        service = RAGService(_StubSession())
+        assert await service._read_document_content(_document(inside_path)) == "ingest me"
+
+    @pytest.mark.asyncio
+    async def test_refuses_document_outside_root(self, storage_root, monkeypatch):
+        monkeypatch.setattr(
+            "app.services.rag_service.settings.STORAGE_LOCAL_PATH", storage_root
+        )
+        outside = os.path.join(os.path.dirname(storage_root), "secret.txt")
+        Path(outside).write_text("top secret", encoding="utf-8")
+
+        service = RAGService(_StubSession())
+        assert await service._read_document_content(_document(outside)) == ""
+
+    @pytest.mark.asyncio
+    async def test_refuses_traversal_document(self, storage_root, monkeypatch):
+        monkeypatch.setattr(
+            "app.services.rag_service.settings.STORAGE_LOCAL_PATH", storage_root
+        )
+        outside = os.path.join(os.path.dirname(storage_root), "traversal.txt")
+        Path(outside).write_text("nope", encoding="utf-8")
+
+        service = RAGService(_StubSession())
+        traversal = f"{storage_root}/../traversal.txt"
+        assert await service._read_document_content(_document(traversal)) == ""
