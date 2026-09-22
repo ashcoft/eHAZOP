@@ -70,7 +70,8 @@ class RAGService:
             try:
                 base_storage_root = os.path.realpath(settings.STORAGE_LOCAL_PATH)
                 resolved_path = os.path.realpath(document.file_path)
-                if not resolved_path.startswith(base_storage_root + os.sep):
+                boundary = base_storage_root.rstrip(os.sep) + os.sep
+                if not resolved_path.startswith(boundary):
                     logger.warning(
                         "ingest: refusing to read document %s outside the storage "
                         "root; no content will be ingested",

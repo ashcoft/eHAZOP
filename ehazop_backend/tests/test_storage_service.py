@@ -15,7 +15,11 @@ from types import SimpleNamespace
 import pytest
 
 from app.services.rag_service import RAGService
-from app.services.storage_service import StorageService, _storage_root
+from app.services.storage_service import (
+    StorageService,
+    _storage_boundary,
+    _storage_root,
+)
 
 
 class _StubResult:
@@ -97,6 +101,19 @@ def _document(file_path):
 class TestStorageRoot:
     def test_storage_root_is_resolved(self, storage_root):
         assert _storage_root() == storage_root
+
+    def test_boundary_rejects_sibling_prefix(self, storage_root):
+        """A sibling directory sharing the root's name prefix is not inside it."""
+        assert _storage_boundary() == storage_root + os.sep
+        assert not f"{storage_root}-evil/file.txt".startswith(_storage_boundary())
+
+    def test_boundary_handles_filesystem_root(self, monkeypatch):
+        """At '/' the boundary must not collapse to '//'."""
+        monkeypatch.setattr(
+            "app.services.storage_service.settings.STORAGE_LOCAL_PATH", os.sep
+        )
+        assert _storage_boundary() == os.sep
+        assert "/etc/passwd".startswith(_storage_boundary())
 
 
 class TestUploadPathTraversal:
@@ -227,6 +244,33 @@ class TestDownloadPathTraversal:
         assert await service.download_file(document.id) == b"report body"
 
     @pytest.mark.asyncio
+    async def test_download_rejects_sibling_prefix_path(self, storage_root):
+        """A '<root>-evil' sibling must not pass a bare startswith(root) check."""
+        sibling_dir = storage_root + "-evil"
+        os.makedirs(sibling_dir, exist_ok=True)
+        sibling_file = os.path.join(sibling_dir, "loot.txt")
+        Path(sibling_file).write_bytes(b"loot")
+
+        document = _document(sibling_file)
+        service = StorageService(_StubSession(document))
+
+        assert await service.download_file(document.id) is None
+
+    @pytest.mark.asyncio
+    async def test_download_rejects_symlink_escape(self, storage_root):
+        """A symlink inside the root that points outside is rejected."""
+        with tempfile.TemporaryDirectory() as outside_dir:
+            secret = os.path.join(outside_dir, "secret.txt")
+            Path(secret).write_bytes(b"secret")
+            link = os.path.join(storage_root, "escape")
+            os.symlink(outside_dir, link)
+
+            document = _document(os.path.join(link, "secret.txt"))
+            service = StorageService(_StubSession(document))
+
+            assert await service.download_file(document.id) is None
+
+    @pytest.mark.asyncio
     async def test_download_rejects_traversal_path(self, storage_root):
         outside = os.path.join(os.path.dirname(storage_root), "outside.txt")
         Path(outside).write_bytes(b"outside")
@@ -253,6 +297,21 @@ class TestDeletePathTraversal:
         assert document in session.deleted
 
         os.remove(secret_path)
+
+    @pytest.mark.asyncio
+    async def test_delete_refuses_sibling_prefix_path(self, storage_root):
+        """A '<root>-evil' sibling must not be unlinked."""
+        sibling_dir = storage_root + "-evil"
+        os.makedirs(sibling_dir, exist_ok=True)
+        sibling_file = os.path.join(sibling_dir, "keep.txt")
+        Path(sibling_file).write_bytes(b"keep")
+
+        document = _document(sibling_file)
+        session = _StubSession(document)
+        service = StorageService(session)
+
+        assert await service.delete_file(document.id) is True
+        assert os.path.exists(sibling_file)
 
     @pytest.mark.asyncio
     async def test_delete_removes_file_inside_root(self, storage_root):

@@ -23,6 +23,15 @@ def _storage_root() -> str:
     return os.path.realpath(settings.STORAGE_LOCAL_PATH)
 
 
+def _storage_boundary() -> str:
+    """Return the path prefix that every stored file must live under.
+
+    The separator is appended so a sibling such as '<root>-evil' is not treated
+    as being inside the root. rstrip avoids producing '//' when the root is '/'.
+    """
+    return _storage_root().rstrip(os.sep) + os.sep
+
+
 class StorageService:
     """Abstraction for file storage (local, S3, MinIO)."""
 
@@ -83,14 +92,14 @@ class StorageService:
 
         base_storage_root = _storage_root()
         storage_path = os.path.realpath(os.path.join(base_storage_root, date_str))
-        if not storage_path.startswith(base_storage_root + os.sep):
+        if not storage_path.startswith(_storage_boundary()):
             raise ValueError("Invalid storage path")
         os.makedirs(storage_path, exist_ok=True)
 
         file_path = os.path.realpath(
             os.path.join(storage_path, f"{file_id}_{safe_filename}")
         )
-        if not file_path.startswith(base_storage_root + os.sep):
+        if not file_path.startswith(_storage_boundary()):
             raise ValueError("Invalid file path")
 
         async with aiofiles.open(file_path, "wb") as f:
@@ -176,9 +185,8 @@ class StorageService:
 
         if document.storage_backend == "local":
             try:
-                base_storage_root = _storage_root()
                 resolved_path = os.path.realpath(document.file_path)
-                if not resolved_path.startswith(base_storage_root + os.sep):
+                if not resolved_path.startswith(_storage_boundary()):
                     logger.warning(
                         "download_file: path containment check failed for document %s. "
                         "File path '%s' is outside configured storage root",
@@ -230,9 +238,8 @@ class StorageService:
 
         if document.storage_backend == "local":
             try:
-                base_storage_root = _storage_root()
                 resolved_path = os.path.realpath(document.file_path)
-                if resolved_path.startswith(base_storage_root + os.sep):
+                if resolved_path.startswith(_storage_boundary()):
                     if os.path.exists(resolved_path):
                         os.remove(resolved_path)
                 else:
