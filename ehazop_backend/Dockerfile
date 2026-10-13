@@ -9,7 +9,12 @@ ENV PYTHONUNBUFFERED=1
 # Set work directory
 WORKDIR /app
 
-# Install system dependencies for WeasyPrint
+# Install system dependencies for WeasyPrint.
+#
+# `build-essential` is required because some transitive dependencies (e.g.
+# brotli, pulled in via weasyprint -> fonttools[woff]) do not yet ship
+# prebuilt wheels for this Python version and therefore have to be compiled
+# from source during `pip install`.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
@@ -22,6 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-liberation \
     fontconfig \
     curl \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
