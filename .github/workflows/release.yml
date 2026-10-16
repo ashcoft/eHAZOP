@@ -23,6 +23,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          fetch-tags: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Node.js
@@ -42,10 +43,19 @@ jobs:
       - name: Get current version
         id: current-version
         run: |
-          cd frontend
-          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          # Prefer the highest existing vX.Y.Z git tag so that re-runs (or runs
+          # that failed after the tag/release was created) never recompute a
+          # version that has already been released. Fall back to package.json.
+          LATEST_TAG=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)
+          if [ -n "$LATEST_TAG" ]; then
+            CURRENT_VERSION="${LATEST_TAG#v}"
+            VERSION_SOURCE="tag $LATEST_TAG"
+          else
+            CURRENT_VERSION=$(node -p "require('./frontend/package.json').version")
+            VERSION_SOURCE="frontend/package.json"
+          fi
           echo "current-version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-          echo "Current version: $CURRENT_VERSION"
+          echo "Current version: $CURRENT_VERSION (from $VERSION_SOURCE)"
 
       - name: Calculate next version
         id: next-version
@@ -71,7 +81,7 @@ jobs:
               exit 1
             fi
           }
-          
+
           # Get bump type from input with validation
           if [ -n "$INPUT_VERSION" ]; then
             if ! validate_version "$INPUT_VERSION"; then
@@ -87,23 +97,23 @@ jobs:
               BUMP_TYPE="minor"
             fi
           fi
-          
+
           # Write validated bump type to output
           echo "bump-type=$BUMP_TYPE" >> $GITHUB_OUTPUT
-          
+
           # Calculate new version using Node.js with proper input handling
           node -e "
             const current = '$CURRENT_VERSION'.split('.').map(Number);
             const bumpType = '$BUMP_TYPE';
-            
+
             // Validate bump type in JS as well
             if (!['major', 'minor', 'patch'].includes(bumpType) && !/^\d+\.\d+\.\d+$/.test(bumpType)) {
               console.error('Invalid bump type');
               process.exit(1);
             }
-            
+
             let [major, minor, patch] = current;
-            
+
             if (bumpType === 'major') {
               major += 1; minor = 0; patch = 0;
             } else if (bumpType === 'minor') {
@@ -117,10 +127,10 @@ jobs:
               minor = parseInt(parts[1], 10);
               patch = parseInt(parts[2], 10);
             }
-            
+
             console.log(major + '.' + minor + '.' + patch);
           " > version_output.txt
-          
+
           VERSION=$(cat version_output.txt)
           echo "next-version=$VERSION" >> $GITHUB_OUTPUT
           echo "Next version: $VERSION (bump: $BUMP_TYPE)"
@@ -141,6 +151,39 @@ jobs:
           sed -i "s|ehazop/backend:[^ ]*|ehazop/backend:$ESCAPED_VERSION|g" docker-compose.yml
           sed -i "s|ehazop/frontend:[^ ]*|ehazop/frontend:$ESCAPED_VERSION|g" docker-compose.yml
 
+      # Commit the version bump and create the tag *before* creating the GitHub
+      # release. softprops/action-gh-release creates the tag on the remote when
+      # it does not exist yet, which made the later local `git tag` fail with
+      # "fatal: tag 'vX.Y.Z' already exists".
+      - name: Commit version bump and create tag
+        env:
+          RELEASE_VERSION: ${{ steps.next-version.outputs.next-version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Escape version for commit message
+          ESCAPED_VERSION=$(echo "$RELEASE_VERSION" | sed 's/"/\\"/g')
+
+          # Stage only the files the release process is expected to change, so
+          # that incidental churn from `npm install` is never committed.
+          git add -- frontend/package.json frontend/package-lock.json docker-compose.yml
+          if git diff --cached --quiet; then
+            echo "No version changes to commit"
+          else
+            git commit -m "chore: bump version to $ESCAPED_VERSION"
+          fi
+
+          if git rev-parse -q --verify "refs/tags/v$RELEASE_VERSION" >/dev/null; then
+            echo "Tag v$RELEASE_VERSION already exists, reusing it"
+          else
+            git tag -a "v$RELEASE_VERSION" -m "Release v$RELEASE_VERSION"
+          fi
+
+          # Push the version bump commit and the tag that points at it.
+          git push origin "HEAD:main"
+          git push origin "refs/tags/v$RELEASE_VERSION"
+
       - name: Create GitHub Release
         id: release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
@@ -154,18 +197,3 @@ jobs:
           prerelease: false
           generate_release_notes: true
           make_latest: true
-
-      - name: Create git tag and commit
-        env:
-          RELEASE_VERSION: ${{ steps.next-version.outputs.next-version }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Escape version for commit message
-          ESCAPED_VERSION=$(echo "$RELEASE_VERSION" | sed 's/"/\\"/g')
-          
-          git add -A
-          git tag -a "v$RELEASE_VERSION" -m "Release v$RELEASE_VERSION"
-          git commit -m "chore: bump version to $ESCAPED_VERSION"
-          git push origin "v$RELEASE_VERSION" && git push origin HEAD:main
