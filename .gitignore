@@ -67,3 +67,5 @@ htmlcov/
 *.swp
 *.swo
 ```
+.agent/dist/
+.agent/node_modules/
