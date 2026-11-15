@@ -1,0 +1,60 @@
+version: 2.1
+
+jobs:
+  backend:
+    docker:
+      - image: cimg/python:3.15
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-pip-{{ checksum "ehazop_backend/requirements.txt" }}
+            - v1-pip-
+      - run:
+          name: Install backend dependencies
+          command: |
+            cd ehazop_backend
+            pip install --upgrade pip
+            pip install -r requirements.txt
+            pip install httpx aiosqlite "pydantic[email]"
+      - run:
+          name: Run backend tests
+          command: |
+            cd ehazop_backend
+            pytest tests/ -v
+      - save_cache:
+          key: v1-pip-{{ checksum "ehazop_backend/requirements.txt" }}
+          paths:
+            - ~/.cache/pip
+
+  frontend:
+    docker:
+      - image: cimg/node:26
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-npm-{{ checksum "frontend/package-lock.json" }}
+            - v1-npm-
+      - run:
+          name: Install frontend dependencies
+          command: cd frontend && npm ci --no-audit --no-fund
+      - run:
+          name: Lint
+          command: cd frontend && npm run lint
+      - run:
+          name: Type check
+          command: cd frontend && npm run type-check
+      - run:
+          name: Build
+          command: cd frontend && npm run build
+      - save_cache:
+          key: v1-npm-{{ checksum "frontend/package-lock.json" }}
+          paths:
+            - frontend/node_modules
+
+workflows:
+  ci:
+    jobs:
+      - backend
+      - frontend
