@@ -1,0 +1,6 @@
+---
+# The .nx/ directory contains the generated Nx wrapper (nxw.js) and its local
+# installation, which Nx requires to be committed. It is tooling, not project
+# source, so keep it out of static analysis.
+exclude_paths:
+  - ".nx/**"

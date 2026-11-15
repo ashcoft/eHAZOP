@@ -2,7 +2,7 @@
   "installation": {
     "version": "24.0.6"
   },
-  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "$schema": "./.nx/installation/node_modules/nx/schemas/nx-schema.json",
   "targetDefaults": {
     "build": {
       "cache": true
